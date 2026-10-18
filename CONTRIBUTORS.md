@@ -3,7 +3,7 @@
 Node Empire is an open-source real-time strategy game inspired by the mechanics of *Seven Kingdoms*.
 
 ## Project Leadership & Original Creator
-* **Founder & Lead Architect**: Original Creator of Node Empire
+* **Founder & Lead Architect**: [Alcartez](https://github.com/Alcartez) : Original Creator of Node Empire
   * Core engine architecture, simulation models, and game design vision.
 
 ## Collaborators & Contributors

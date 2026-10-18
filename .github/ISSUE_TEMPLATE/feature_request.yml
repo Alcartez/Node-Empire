@@ -1,0 +1,41 @@
+name: Feature Request
+description: Propose a new game mechanic, UI enhancement, or balance change
+title: "[FEATURE] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: We welcome game design ideas, balance calibrations, and feature proposals!
+  - type: textarea
+    id: summary
+    attributes:
+      label: Feature Summary
+      description: What is the proposed feature or balance tweak?
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Problem or Motivation
+      description: What gameplay problem does this solve, or how does it enhance the player experience?
+    validations:
+      required: true
+  - type: dropdown
+    id: domain
+    attributes:
+      label: Target System
+      options:
+        - "Core Economy & Roads"
+        - "Generals & Military Command"
+        - "Espionage & Covert Ops"
+        - "Species Demographics & Traits"
+        - "UI / HUD & Ergonomics"
+        - "Audio & Shaders"
+        - "Other"
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Considered Alternatives
+      description: Have you considered any alternative solutions or implementations?

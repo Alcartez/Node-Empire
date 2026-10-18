@@ -1,5 +1,8 @@
 # Node Empire
 
+[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/TquJzY24Ea)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+
 A realtime strategy game of roads, villages, garrisons and spies — a graph
 instead of a grid of tanks. You start with one village and a few fields, and you
 win by weaving the map together: claim nodes, staff them, keep the peace, and
@@ -50,6 +53,7 @@ formulas and the tick pipeline.
 Full documentation is organized into subdirectories in [`docs/`](docs/):
 
 ### Technical ([`docs/technical/`](docs/technical/))
+* [`docs/technical/SETUP_AND_PLAYTESTING.md`](docs/technical/SETUP_AND_PLAYTESTING.md) — Rustup installation (Windows/Linux/Mac) and manual playtesting protocol.
 * [`docs/technical/ARCHITECTURE.md`](docs/technical/ARCHITECTURE.md) — Engine layers, tick pipeline, economy formulas, and headless invariants.
 * [`docs/technical/TESTING.md`](docs/technical/TESTING.md) — Developer testing guide, `ScenarioHarness` fixture builder, and test suite commands.
 * [`docs/technical/IMPLEMENTATION.md`](docs/technical/IMPLEMENTATION.md) — Historical engineering implementation log.
@@ -64,17 +68,12 @@ Full documentation is organized into subdirectories in [`docs/`](docs/):
 * [`docs/design/factions.md`](docs/design/factions.md) — Lore, species traits, and stat modifiers for the six courts.
 * [`backup/README.md`](backup/README.md) — The two retired engines kept for reference.
 
-## Roadmap
+## Roadmap & Contributing
 
-1. **Economy and spawns** — order/employment/growth/garrison rules and
-   guaranteed, playable starts. *(done)*
-2. **Scale** — selectable map sizes (Small 72x56, Standard 112x84, Large
-   160x120) with content that scales by area.
-3. **Travel** — workers and peasants visibly walk the roads; producers can be
-   claimed by walking in; soldiers march to the front.
-4. **Calibration** — firms of many workers, taxes that trade loyalty for gold,
-   salaries and rebellious loyalty floors, at this game's own (larger) scale
-   than its ancestors.
+- 💬 **Join our Discord**: [discord.gg/TquJzY24Ea](https://discord.gg/TquJzY24Ea) — playtester feedback, developer discussion, and feature brainstorming.
+- 🗺️ **Full Development Roadmap**: See [`ROADMAP.md`](ROADMAP.md) for milestone breakdowns, active features, and upcoming phases.
+- 🤝 **Get Involved**: Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for our contribution guide, developer setup, and architectural guidelines.
+- 👥 **Authors & Credits**: See [`CONTRIBUTORS.md`](CONTRIBUTORS.md) for licensing agreements and contributor listings.
 
 ## License
 
