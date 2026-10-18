@@ -44,6 +44,7 @@ impl World {
         self.caravans(&player_linked, &enemy_linked);
         self.supply_forts();
         self.governance(&player_linked, &enemy_linked);
+        self.auto_employ_pass();
         self.general_upkeep_pass();
         self.combat();
         self.espionage();
@@ -251,7 +252,7 @@ impl World {
     // -----------------------------------------------------------------
 
     fn caravans(&mut self, _player_linked: &HashSet<u32>, _enemy_linked: &HashSet<u32>) {
-        let mut transfers: Vec<(u32, u32)> = Vec::new();
+        let mut transfers: Vec<(u32, u32, Owner)> = Vec::new();
 
         for edge in self.edges.iter_mut() {
             if edge.kind != EdgeType::Resource && edge.kind != EdgeType::Trade {
@@ -265,25 +266,25 @@ impl World {
             edge.progress += 1.0;
             if edge.progress >= period {
                 edge.progress = 0.0;
-                transfers.push((edge.from, edge.to));
+                transfers.push((edge.from, edge.to, edge.by));
             }
         }
 
-        for (a, b) in transfers {
-            self.try_transfer(a, b);
+        for (a, b, by) in transfers {
+            self.try_transfer(a, b, by);
         }
     }
 
     /// Move one unit of the most valuable transferable resource a→b or b→a.
-    fn try_transfer(&mut self, a: u32, b: u32) {
-        if self.move_stock(a, b) {
+    fn try_transfer(&mut self, a: u32, b: u32, by: Owner) {
+        if self.move_stock(a, b, by) {
             return;
         }
-        self.move_stock(b, a);
+        self.move_stock(b, a, by);
     }
 
     /// If `from` has something `to` wants, move it.
-    fn move_stock(&mut self, from: u32, to: u32) -> bool {
+    fn move_stock(&mut self, from: u32, to: u32, by: Owner) -> bool {
         let (want_food, want_ore, want_timber, want_goods, from_owner, to_owner, from_kind, to_kind) = {
             let (f, t) = match (self.nodes.get(&from), self.nodes.get(&to)) {
                 (Some(f), Some(t)) => (f, t),
@@ -398,13 +399,189 @@ impl World {
         if send <= 0 {
             return false;
         }
+        let is_goods = from_kind == NodeType::Factory;
         if let Some(f) = self.nodes.get_mut(&from) {
             *resource(&mut f.stock) -= send;
         }
         if let Some(t) = self.nodes.get_mut(&to) {
             *resource(&mut t.stock) += send;
         }
+        if to_owner == Owner::Neutral && to_kind == NodeType::Settlement {
+            self.award_fealty(to, by, is_goods);
+        } else if from_owner == Owner::Neutral && from_kind == NodeType::Settlement {
+            self.award_fealty(from, by, false);
+        }
         true
+    }
+
+    /// Fealty accumulation & Rise of Legends commercial allegiance progression
+    fn award_fealty(&mut self, settlement_id: u32, by: Owner, goods: bool) {
+        if by != Owner::Player && by != Owner::Enemy {
+            return;
+        }
+        let (name, prev_tier, new_tier) = {
+            let Some(n) = self.nodes.get_mut(&settlement_id) else { return };
+            if n.owner != Owner::Neutral || !n.is_settlement() {
+                return;
+            }
+            let prev_tier = n.fealty_tier(by);
+            let gain = if goods { 2.5 } else { 1.2 };
+            let entry = n.fealty.entry(by).or_insert(0.0);
+            *entry = (*entry + gain).min(100.0);
+
+            // Tug of war: erode rival fealty
+            let rival = if by == Owner::Player { Owner::Enemy } else { Owner::Player };
+            if let Some(rf) = n.fealty.get_mut(&rival) {
+                *rf = (*rf - gain * 0.2).max(0.0);
+            }
+
+            let new_tier = n.fealty_tier(by);
+            (n.name.clone(), prev_tier, new_tier)
+        };
+
+        // Commercial dividend for Trading Partner+ (25+)
+        if new_tier != AllegianceTier::WaryNeutral {
+            match by {
+                Owner::Player => self.player_ledger.gold += 3,
+                Owner::Enemy => self.enemy_ledger.gold += 3,
+                _ => {}
+            }
+        }
+
+        if prev_tier != new_tier {
+            match new_tier {
+                AllegianceTier::TradingPartner => {
+                    if by == Owner::Player {
+                        self.log(
+                            EventKind::Good,
+                            format!("{} is now our Trading Partner! We receive commercial trade dividends.", name),
+                        );
+                    }
+                }
+                AllegianceTier::AlliedProtector => {
+                    if by == Owner::Player {
+                        self.log(
+                            EventKind::Good,
+                            format!("{} has recognized us as their Allied Protector! Their auxiliary levies stand ready.", name),
+                        );
+                    }
+                }
+                AllegianceTier::IntegratedDomain => {
+                    if let Some(n) = self.nodes.get_mut(&settlement_id) {
+                        n.owner = by;
+                        if by == Owner::Player {
+                            n.faction = Some(self.player_faction);
+                        } else {
+                            n.faction = Some(self.enemy_faction);
+                        }
+                    }
+                    // Also flip connected neutral starter ring nodes
+                    let ring_targets: Vec<u32> = self.edges.iter().filter_map(|e| {
+                        if e.from == settlement_id {
+                            Some(e.to)
+                        } else if e.to == settlement_id {
+                            Some(e.from)
+                        } else {
+                            None
+                        }
+                    }).collect();
+                    for other in ring_targets {
+                        if let Some(other_node) = self.nodes.get_mut(&other) {
+                            if other_node.owner == Owner::Neutral && other_node.is_production() {
+                                other_node.owner = by;
+                                if by == Owner::Player {
+                                    other_node.faction = Some(self.player_faction);
+                                } else {
+                                    other_node.faction = Some(self.enemy_faction);
+                                }
+                            }
+                        }
+                    }
+                    match by {
+                        Owner::Player => {
+                            self.player_ledger.gold += 50;
+                            self.stats.settlements_taken += 1;
+                            self.log(
+                                EventKind::Good,
+                                format!("{} has sworn complete fealty and peacefully integrated into our realm!", name),
+                            );
+                        }
+                        Owner::Enemy => {
+                            self.enemy_ledger.gold += 50;
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    /// Auto-employment: idle settlement population auto-fills connected production buildings.
+    fn auto_employ_pass(&mut self) {
+        if self.tick % AUTO_EMPLOY_INTERVAL != 0 {
+            return;
+        }
+
+        let settlements: Vec<(u32, Owner)> = self
+            .nodes
+            .values()
+            .filter(|n| n.is_settlement() && n.population > MIN_SETTLEMENT_POP_RESERVE)
+            .map(|n| (n.id, n.owner))
+            .collect();
+
+        for (s_id, s_owner) in settlements {
+            let current_pop = self.nodes.get(&s_id).map(|n| n.population).unwrap_or(0);
+            if current_pop <= MIN_SETTLEMENT_POP_RESERVE {
+                continue;
+            }
+
+            let mut queue = std::collections::VecDeque::new();
+            let mut visited = HashSet::new();
+            queue.push_back(s_id);
+            visited.insert(s_id);
+            let mut target_job_node = None;
+
+            while let Some(curr) = queue.pop_front() {
+                for e in self.edges.iter() {
+                    if e.from != curr && e.to != curr {
+                        continue;
+                    }
+                    if e.kind != EdgeType::Resource {
+                        continue;
+                    }
+                    let next = if e.from == curr { e.to } else { e.from };
+                    if visited.insert(next) {
+                        if let Some(n) = self.nodes.get(&next) {
+                            if n.owner == s_owner
+                                && (n.is_production() || n.kind == NodeType::Laboratory)
+                                && n.worker_count() < n.job_slots()
+                            {
+                                target_job_node = Some(next);
+                                break;
+                            }
+                            if n.owner == s_owner {
+                                queue.push_back(next);
+                            }
+                        }
+                    }
+                }
+                if target_job_node.is_some() {
+                    break;
+                }
+            }
+
+            if let Some(target_id) = target_job_node {
+                if let Some(s) = self.nodes.get_mut(&s_id) {
+                    s.population -= 1;
+                }
+                if let Some(target) = self.nodes.get_mut(&target_id) {
+                    let job = target.kind.job();
+                    let name = super::map::agent_name(self.rng.next_u64());
+                    target.workers.push(Worker::new(job, AUTO_EMPLOY_START_SKILL, 0, name));
+                }
+            }
+        }
     }
 
     // -----------------------------------------------------------------

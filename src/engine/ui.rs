@@ -680,6 +680,20 @@ fn inspector(ui: &mut Ui, w: &World, n: &crate::game::world::Node, acts: &mut Ve
                 ui.label(RichText::new("Loyalty").color(theme::DIM).size(11.0));
                 ui.label(RichText::new(format!("{}", n.loyalty)).color(theme::NEUTRAL));
                 ui.end_row();
+                if n.owner == Owner::Neutral {
+                    let fealty = n.fealty.get(&Owner::Player).copied().unwrap_or(0.0);
+                    let tier = n.fealty_tier(Owner::Player);
+                    ui.label(RichText::new("Fealty").color(theme::GOLD).size(11.0));
+                    ui.label(RichText::new(format!("{:.0}% \u{b7} {}", fealty, tier.label())).color(theme::GOLD).strong());
+                    ui.end_row();
+                    if let Some(spec) = n.specialty {
+                        ui.label(RichText::new("Specialty").color(theme::DIM).size(11.0));
+                        ui.horizontal(|ui| {
+                            theme::chip(ui, spec.label(), theme::GOLD);
+                        });
+                        ui.end_row();
+                    }
+                }
             });
         ui.add_space(3.0);
         ui.horizontal_wrapped(|ui| {
@@ -697,6 +711,9 @@ fn inspector(ui: &mut Ui, w: &World, n: &crate::game::world::Node, acts: &mut Ve
                 Race::Reptilian => "Reptilian: cold-blooded endurance, -25% food, +15% combat valor",
             };
             ui.label(RichText::new(race_blurb).italics().size(10.5).color(theme::FAINT));
+        }
+        if let Some(spec) = n.specialty {
+            ui.label(RichText::new(format!("Specialty: {}", spec.bonus_description())).italics().size(10.5).color(theme::GOLD));
         }
         if n.besieged {
             ui.colored_label(theme::BAD, "Under siege!");

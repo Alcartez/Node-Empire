@@ -58,6 +58,12 @@ pub struct Node {
     /// Fort equipment level (militia -> bronze -> iron-clad -> steel).
     #[serde(default)]
     pub equipment: EquipmentTier,
+    /// Fealty scores per owner for neutral sites (Player -> score, Enemy -> score).
+    #[serde(default)]
+    pub fealty: HashMap<Owner, f32>,
+    /// Neutral site specialty (Highland Nomads, Iron Guild, etc.).
+    #[serde(default)]
+    pub specialty: Option<NeutralSpecialty>,
 }
 
 impl Node {
@@ -101,6 +107,21 @@ impl Node {
             general_id: None,
             dominant_race,
             equipment: EquipmentTier::Militia,
+            fealty: HashMap::new(),
+            specialty: None,
+        }
+    }
+
+    pub fn fealty_tier(&self, owner: Owner) -> AllegianceTier {
+        let f = self.fealty.get(&owner).copied().unwrap_or(0.0);
+        if f >= 85.0 {
+            AllegianceTier::IntegratedDomain
+        } else if f >= 50.0 {
+            AllegianceTier::AlliedProtector
+        } else if f >= 25.0 {
+            AllegianceTier::TradingPartner
+        } else {
+            AllegianceTier::WaryNeutral
         }
     }
 
@@ -311,7 +332,7 @@ impl World {
     // -----------------------------------------------------------------
 
     pub fn new(seed: u64, player_faction: Faction, difficulty: Difficulty) -> Self {
-        let map = Map::generate(seed, 56, 44);
+        let map = Map::generate(seed, 120, 90);
         let mut world = Self {
             map,
             nodes: HashMap::new(),
@@ -1296,18 +1317,18 @@ impl World {
         let rows = self.map.rows;
 
         // Player capital: north-west quadrant. Enemy: south-east.
-        let pw = self.map.nearest_passable(cols / 6, rows / 6, 3);
-        let ew = self.map.nearest_passable(cols - cols / 6, rows - rows / 6, 3);
+        let pw = self.map.nearest_passable(cols / 7, rows / 7, 3);
+        let ew = self.map.nearest_passable(cols - cols / 7, rows - rows / 7, 3);
 
         let pid = self.spawn_settlement(Owner::Player, pw.0, pw.1);
         let eid = self.spawn_settlement(Owner::Enemy, ew.0, ew.1);
 
         // Neutral settlements scattered through the middle.
-        let neutral_count = 7;
+        let neutral_count = 16;
         let mut placed: Vec<(f32, f32)> = vec![(pw.0 as f32, pw.1 as f32), (ew.0 as f32, ew.1 as f32)];
         let mut villages: Vec<u32> = Vec::new();
         for _ in 0..neutral_count {
-            if let Some((x, y)) = self.find_spot(&placed, 10.0, true) {
+            if let Some((x, y)) = self.find_spot(&placed, 12.0, true) {
                 let id = self.spawn_settlement(Owner::Neutral, x as i32, y as i32);
                 villages.push(id);
                 placed.push((x, y));
@@ -1318,9 +1339,9 @@ impl World {
         // reachable by both sides for fairness.
         let mut all: Vec<(f32, f32)> = placed.clone();
         let resources = [
-            (NodeType::Farm, 10),
-            (NodeType::Woodcamp, 8),
-            (NodeType::Mine, 7),
+            (NodeType::Farm, 24),
+            (NodeType::Woodcamp, 18),
+            (NodeType::Mine, 16),
         ];
         for (kind, count) in resources {
             for _ in 0..count {
@@ -1332,8 +1353,8 @@ impl World {
         }
 
         // Bandit camps — neutral hazards that raid over time.
-        for _ in 0..3 {
-            if let Some((x, y)) = self.find_spot(&all, 14.0, false) {
+        for _ in 0..6 {
+            if let Some((x, y)) = self.find_spot(&all, 15.0, false) {
                 let id = self.next_id;
                 self.next_id += 1;
                 let mut n = Node::new(
@@ -1539,6 +1560,15 @@ impl World {
             }
         };
         n.dominant_race = dominant_race;
+        if owner == Owner::Neutral {
+            let specialties = [
+                NeutralSpecialty::HighlandNomads,
+                NeutralSpecialty::IronGuild,
+                NeutralSpecialty::MysticOrder,
+                NeutralSpecialty::RiverCorsairs,
+            ];
+            n.specialty = Some(specialties[self.rng.index(specialties.len())]);
+        }
         self.nodes.insert(id, n);
         id
     }

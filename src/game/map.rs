@@ -136,11 +136,11 @@ impl Map {
 
                 terrain[i] = if elev < 0.34 {
                     Terrain::Water
-                } else if elev < 0.385 {
+                } else if elev < 0.38 {
                     Terrain::Sand
-                } else if elev > 0.70 {
+                } else if elev > 0.78 {
                     Terrain::Mountain
-                } else if moist > 0.52 {
+                } else if moist > 0.63 {
                     Terrain::Forest
                 } else {
                     Terrain::Grass

@@ -24,7 +24,7 @@ pub const WEB_VICTORY_RATIO: f32 = 1.0;
 
 pub const MIN_EDGE_TILES: f32 = 1.5;
 /// Straight-line max length for drawing a road.
-pub const MAX_EDGE_TILES: f32 = 14.0;
+pub const MAX_EDGE_TILES: f32 = 22.0;
 /// A* may wander up to this multiple of the straight-line distance.
 pub const MAX_PATH_FACTOR: f32 = 2.6;
 pub const EDGE_BASE_COST: i32 = 5;
@@ -92,6 +92,14 @@ pub fn garrison_cap(tier: u8, pool_pop: i32) -> i32 {
     let share = (pool_pop as f32 * GARRISON_SHARE / (1.0 + GARRISON_SHARE)).round() as i32;
     share.clamp(1, GARRISON_CEILING[(tier as usize).min(GARRISON_CEILING.len() - 1)])
 }
+
+// ---------------------------------------------------------------------------
+// Auto-Employment (Seven Kingdoms parity)
+// ---------------------------------------------------------------------------
+
+pub const AUTO_EMPLOY_INTERVAL: u64 = 20; // Ticks between auto-employment checks (~1 second)
+pub const AUTO_EMPLOY_START_SKILL: i32 = 5; // Starting skill of an auto-employed novice peasant
+pub const MIN_SETTLEMENT_POP_RESERVE: i32 = 5; // Baseline population to keep in a settlement
 
 // Building costs
 pub const BUILD_COSTS: [(NodeType, i32); 8] = [
@@ -262,7 +270,7 @@ impl NodeType {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Owner {
     Player,
     Enemy,
@@ -276,6 +284,61 @@ impl Owner {
             (self, other),
             (Owner::Bandit, _) | (_, Owner::Bandit) | (Owner::Player, Owner::Enemy) | (Owner::Enemy, Owner::Player)
         )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Neutral Fealty & Allegiance (Rise of Legends parity)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AllegianceTier {
+    /// 0..24 Fealty: Standard trade allowed.
+    WaryNeutral,
+    /// 25..49 Fealty: +Gold dividend on trade deliveries.
+    TradingPartner,
+    /// 50..84 Fealty: Pledges auxiliary military defenders.
+    AlliedProtector,
+    /// 85..100 Fealty: Voluntary peaceful integration into the realm!
+    IntegratedDomain,
+}
+
+impl AllegianceTier {
+    pub fn label(&self) -> &'static str {
+        match self {
+            AllegianceTier::WaryNeutral => "Wary Neutral",
+            AllegianceTier::TradingPartner => "Trading Partner",
+            AllegianceTier::AlliedProtector => "Allied Protector",
+            AllegianceTier::IntegratedDomain => "Integrated Domain",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NeutralSpecialty {
+    HighlandNomads,
+    IronGuild,
+    MysticOrder,
+    RiverCorsairs,
+}
+
+impl NeutralSpecialty {
+    pub fn label(&self) -> &'static str {
+        match self {
+            NeutralSpecialty::HighlandNomads => "Highland Nomads",
+            NeutralSpecialty::IronGuild => "Iron Guild",
+            NeutralSpecialty::MysticOrder => "Mystic Order",
+            NeutralSpecialty::RiverCorsairs => "River Corsairs",
+        }
+    }
+
+    pub fn bonus_description(&self) -> &'static str {
+        match self {
+            NeutralSpecialty::HighlandNomads => "Swift scouts & frontier riders",
+            NeutralSpecialty::IronGuild => "Master metalworkers & siege sappers",
+            NeutralSpecialty::MysticOrder => "Alchemist healers & civic tranquility",
+            NeutralSpecialty::RiverCorsairs => "River navigators & tariff evasion",
+        }
     }
 }
 
