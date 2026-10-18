@@ -1,0 +1,28 @@
+[package]
+name = "node_empire"
+version = "0.3.0"
+edition = "2021"
+description = "Node Empire - a graph-based kingdom strategy game on the Bevy engine"
+license = "GPL-3.0-or-later"
+readme = "README.md"
+
+[dependencies]
+# Only the 2D and UI feature sets: no 3D, no glTF, no audio.
+bevy = { version = "0.20", default-features = false, features = ["2d", "ui", "debug"] }
+bevy_egui = "0.43"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rand = "0.8"
+
+# Bevy is very slow to run unoptimized, even in debug builds.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+opt-level = 2
+lto = true
+codegen-units = 1
+strip = true

@@ -1,0 +1,46 @@
+# ==============================================================================
+# Node Empire: Git Ignore Configuration
+# ==============================================================================
+
+# Rust & Cargo Build Artifacts
+/target/
+**/*.rs.bk
+*.pdb
+*.d
+*.rlib
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Package and Lock Files (User-Requested)
+Cargo.lock
+*.lock
+*.crate
+/dist/
+/pkg/
+/package/
+
+# Game Runtime & Save Files
+/saves/*.json
+!/saves/.gitkeep
+
+# IDE and Editor Directories
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Diagnostics & Crash Logs
+*.log
+crash.dmp
