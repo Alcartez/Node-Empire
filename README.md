@@ -3,8 +3,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/TquJzY24Ea)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
-A realtime strategy game of roads, villages, garrisons and spies — a graph
-instead of a grid of tanks. You start with one village and a few fields, and you
+A realtime strategy game of roads, villages, garrisons and spies. You start with one village and a few fields, and you
 win by weaving the map together: claim nodes, staff them, keep the peace, and
 take the rest by influence or by force.
 
