@@ -52,7 +52,11 @@ fn fbm(seed: u64, x: f32, y: f32, octaves: u32) -> f32 {
     let mut max_amp = 0.0;
 
     for i in 0..octaves {
-        value += value_noise(seed.wrapping_add(i as u64 * 7919), x * frequency, y * frequency) * amplitude;
+        value += value_noise(
+            seed.wrapping_add(i as u64 * 7919),
+            x * frequency,
+            y * frequency,
+        ) * amplitude;
         max_amp += amplitude;
         amplitude *= 0.5;
         frequency *= 2.0;
@@ -213,7 +217,13 @@ impl Map {
         None
     }
 
-    fn find_open_tile(&self, cx: i32, cy: i32, min_clear: i32, max_radius: i32) -> Option<(i32, i32)> {
+    fn find_open_tile(
+        &self,
+        cx: i32,
+        cy: i32,
+        min_clear: i32,
+        max_radius: i32,
+    ) -> Option<(i32, i32)> {
         for r in 0..=max_radius {
             for dy in -r..=r {
                 for dx in -r..=r {
@@ -315,12 +325,12 @@ impl Map {
                     continue;
                 }
                 // Diagonal moves must not cut a corner between two blocked tiles.
-                if dx != 0 && dy != 0 {
-                    if !self.passable(current.0 + dx, current.1)
-                        || !self.passable(current.0, current.1 + dy)
-                    {
-                        continue;
-                    }
+                if dx != 0
+                    && dy != 0
+                    && (!self.passable(current.0 + dx, current.1)
+                        || !self.passable(current.0, current.1 + dy))
+                {
+                    continue;
                 }
 
                 let tentative = current_g + cost;
@@ -353,10 +363,7 @@ impl Map {
         (0..=steps)
             .map(|i| {
                 let t = i as f32 / steps as f32;
-                (
-                    a.0 + (dx * t).round() as i32,
-                    a.1 + (dy * t).round() as i32,
-                )
+                (a.0 + (dx * t).round() as i32, a.1 + (dy * t).round() as i32)
             })
             .collect()
     }
@@ -410,10 +417,7 @@ fn smooth_isolates(terrain: Vec<Terrain>, cols: i32, rows: i32) -> Vec<Terrain> 
                 let mut best_count = 0;
                 for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
                     let n = at(&terrain, x + dx, y + dy);
-                    let c = terrain
-                        .iter()
-                        .filter(|&&tt| tt == n)
-                        .count();
+                    let c = terrain.iter().filter(|&&tt| tt == n).count();
                     if c > best_count {
                         best_count = c;
                         best = n;
@@ -431,24 +435,37 @@ fn smooth_isolates(terrain: Vec<Terrain>, cols: i32, rows: i32) -> Vec<Terrain> 
 // ---------------------------------------------------------------------------
 
 const NAME_PREFIX: &[&str] = &[
-    "Silk", "Ash", "Velvet", "Thorn", "Ember", "Gloom", "Bright", "Iron", "Rune", "Mist",
-    "Cinder", "Duskmere", "Gold", "Hollow", "Web", "Storm", "Frost", "Bramble", "Night", "Sun",
-    "Pearl", "Rust", "Wyrm", "Glass", "Crow", "Thistle", "Moon", "Salt", "Oak", "Shade",
+    "Silk", "Ash", "Velvet", "Thorn", "Ember", "Gloom", "Bright", "Iron", "Rune", "Mist", "Cinder",
+    "Duskmere", "Gold", "Hollow", "Web", "Storm", "Frost", "Bramble", "Night", "Sun", "Pearl",
+    "Rust", "Wyrm", "Glass", "Crow", "Thistle", "Moon", "Salt", "Oak", "Shade",
 ];
 
 const NAME_SUFFIX: &[&str] = &[
-    "hold", "mere", "gate", "fen", "spire", "rest", "watch", "ford", "hollow", "reach",
-    "mark", "vale", "burg", "wick", "holt", "stead", "ford", "crest", "dell", "moor",
+    "hold", "mere", "gate", "fen", "spire", "rest", "watch", "ford", "hollow", "reach", "mark",
+    "vale", "burg", "wick", "holt", "stead", "ford", "crest", "dell", "moor",
 ];
 
 const SPY_FIRST: &[&str] = &[
-    "Vex", "Sil", "Nyx", "Kara", "Dren", "Ilo", "Fen", "Mara", "Tess", "Orin",
-    "Shae", "Volk", "Enna", "Rook", "Lys", "Cade", "Mira", "Zeph", "Bryn", "Hale",
+    "Vex", "Sil", "Nyx", "Kara", "Dren", "Ilo", "Fen", "Mara", "Tess", "Orin", "Shae", "Volk",
+    "Enna", "Rook", "Lys", "Cade", "Mira", "Zeph", "Bryn", "Hale",
 ];
 
 const SPY_LAST: &[&str] = &[
-    "the Quiet", "Needle", "Whisper", "Shade", "Coil", "Thread", "Gloom", "Veil",
-    "Echo", "Strand", "Wisp", "Silkhand", "Shadow", "in the Dark", "the Patient",
+    "the Quiet",
+    "Needle",
+    "Whisper",
+    "Shade",
+    "Coil",
+    "Thread",
+    "Gloom",
+    "Veil",
+    "Echo",
+    "Strand",
+    "Wisp",
+    "Silkhand",
+    "Shadow",
+    "in the Dark",
+    "the Patient",
 ];
 
 /// Generate a settlement or faction place name from a seed.

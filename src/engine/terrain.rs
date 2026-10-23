@@ -12,7 +12,9 @@
 use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, ShaderType};
 use bevy::shader::{Shader, ShaderRef};
-use bevy::sprite_render::{ColorMaterial, ExtendedMaterial2d, Material2dPlugin, MaterialExtension2d};
+use bevy::sprite_render::{
+    ColorMaterial, ExtendedMaterial2d, Material2dPlugin, MaterialExtension2d,
+};
 use std::sync::OnceLock;
 
 /// The shader source, compiled into the binary. Keeping it embedded means the

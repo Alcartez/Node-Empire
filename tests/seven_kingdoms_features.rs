@@ -31,11 +31,7 @@ fn test_general_loyalty_and_bonus() {
     assert!(res.is_ok());
     assert_eq!(w.player_ledger.gold, 150);
 
-    let updated_gen = w
-        .generals
-        .iter()
-        .find(|g| g.id == player_gen.id)
-        .unwrap();
+    let updated_gen = w.generals.iter().find(|g| g.id == player_gen.id).unwrap();
     assert_eq!(updated_gen.loyalty, (initial_loyalty + 15).min(100));
 
     // Try without enough gold
@@ -87,7 +83,10 @@ fn test_fort_equipment_progression() {
         .expect("Player starting fort exists")
         .id;
 
-    assert_eq!(w.node(player_fort).unwrap().equipment, EquipmentTier::Militia);
+    assert_eq!(
+        w.node(player_fort).unwrap().equipment,
+        EquipmentTier::Militia
+    );
 
     // Give player plenty of gold
     w.player_ledger.gold = 1000;
@@ -95,18 +94,27 @@ fn test_fort_equipment_progression() {
     // Militia -> Bronze
     let res1 = w.upgrade_fort_equipment(player_fort, Owner::Player);
     assert!(res1.is_ok());
-    assert_eq!(w.node(player_fort).unwrap().equipment, EquipmentTier::Bronze);
+    assert_eq!(
+        w.node(player_fort).unwrap().equipment,
+        EquipmentTier::Bronze
+    );
     assert!(w.player_ledger.gold < 1000);
 
     // Bronze -> Iron-Clad
     let res2 = w.upgrade_fort_equipment(player_fort, Owner::Player);
     assert!(res2.is_ok());
-    assert_eq!(w.node(player_fort).unwrap().equipment, EquipmentTier::IronClad);
+    assert_eq!(
+        w.node(player_fort).unwrap().equipment,
+        EquipmentTier::IronClad
+    );
 
     // Iron-Clad -> Steel & Siege
     let res3 = w.upgrade_fort_equipment(player_fort, Owner::Player);
     assert!(res3.is_ok());
-    assert_eq!(w.node(player_fort).unwrap().equipment, EquipmentTier::SteelSiege);
+    assert_eq!(
+        w.node(player_fort).unwrap().equipment,
+        EquipmentTier::SteelSiege
+    );
 
     // Max tier reached
     let res4 = w.upgrade_fort_equipment(player_fort, Owner::Player);
@@ -119,5 +127,7 @@ fn test_race_trait_mechanics() {
     assert!(Race::HiveSwarm.growth_multiplier() > Race::Human.growth_multiplier());
     assert!(Race::Beetlefolk.combat_multiplier() > Race::Human.combat_multiplier());
     assert!(Race::Beetlefolk.defense_multiplier() > Race::Human.defense_multiplier());
-    assert!(Race::Reptilian.food_consumption_multiplier() < Race::Human.food_consumption_multiplier());
+    assert!(
+        Race::Reptilian.food_consumption_multiplier() < Race::Human.food_consumption_multiplier()
+    );
 }

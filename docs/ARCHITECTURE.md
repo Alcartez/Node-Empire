@@ -14,7 +14,7 @@ src/
   lib.rs         pub mod game; pub mod engine;
   game/          pure simulation — no Bevy imports, fully serializable
     types.rs     enums, constants, factions, Node/Edge/Spy value types
-    map.rs       procedural map (56x44), terrain/deposits, A* pathfinding
+    map.rs       procedural map (120x90), terrain/deposits, A* pathfinding
     world.rs     World state + all player/AI commands and queries
     sim.rs       the tick pipeline (see below)
     ai.rs        enemy decision making
@@ -28,18 +28,14 @@ src/
     theme.rs     palette + generic egui widgets (cards, meters, segments)
     ui.rs        HUD panels, overlays, main menu; emits Action enums
     errors.rs    the fallback error handler and the toast queue
-tests/
-  sim_stress.rs  headless simulation tests (no window, no Bevy)
-  economy.rs     order, employment, growth gates and garrisons
-  spawn.rs       new-game spawn guarantees, checked over 200 seeds
+tests/         headless suites; the catalogue lives in TESTING.md
 assets/
   shaders/terrain.wesl   the only asset: terrain shimmer, compiled in
 ```
 
 The game layer is engine-agnostic: `cargo test` runs the whole simulation
 without a window, and saves are plain JSON (`serde`) that survive engine
-changes. The engine may be replaced wholesale (it was, twice: `backup/`) without
-touching `game/`.
+changes. The presentation layer can be replaced without touching `game/`.
 
 ## Engine: Bevy 0.20
 
@@ -148,14 +144,19 @@ One tick = 0.2 s of game time (`TICK_DT`). Order of operations:
    by tier), excess marches home when the village shrinks, and a garrison whose
    fort loses its Supply road drifts home
 4. **Governance** — food, happiness, public order, population growth (see below)
-5. **Combat** — fort battles, sieges, bandit camps
-6. **Espionage** — spy travel, embedded operations (Infiltrate, Siphon,
+5. **Auto-employment** — every 20 ticks, connected production buildings hire one
+   novice from the settlement's idle population (keeping a reserve of 5)
+6. **General upkeep** — every 100 ticks: pay salaries, drift loyalty, resolve
+   mutinies
+7. **Combat** — fort battles, sieges, bandit camps
+8. **Espionage** — spy travel, embedded operations (Infiltrate, Siphon,
    Sabotage, Incite), counter-espionage
-7. **Influence** — trade routes to rivals grant influence; petitions
-8. **Bandits** — camps spawn and raid
-9. **Training** — workers/skills progress over ticks
-10. **AI** — enemy builds, offense (forts with pop > 6 attack)
-11. **Victory check** — Economic (gold), Domination (all settlements),
+9. **Influence** — trade routes to rivals grant influence; petitions,
+   fomentation, purchase
+10. **Bandits** — camps grow and raid
+11. **Training** — workers/skills progress over ticks
+12. **AI** — enemy builds, offense (forts with pop > 6 attack)
+13. **Victory check** — Economic (gold), Domination (all settlements),
     Web (Infiltrate spy + 70 influence on every enemy settlement), Defeat
 
 Autosave (slot 0) fires inside `tick()` every 600 ticks; `World::autosave`
@@ -172,7 +173,8 @@ order target = civic base (32 when fed, 0 when starving)
              + 20 if a Supply road links the settlement to your fort
              - 25 while besieged
 order drifts toward that target by 5% a tick, plus +0.1 of civic inertia
-happiness follows order exactly (no drift of its own)
+happiness target = 0.6 x order + 0.4 x happiness + faction happiness
+happiness drifts toward that target by 4% a tick (so it lags order)
 growth roll fires while happiness > 55 and order > 40
 ```
 

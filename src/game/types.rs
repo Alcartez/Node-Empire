@@ -90,7 +90,10 @@ pub const GARRISON_CEILING: [i32; 4] = [8, 12, 16, 20];
 /// village fort holds ~8 spears and a metropolis citadel ~20.
 pub fn garrison_cap(tier: u8, pool_pop: i32) -> i32 {
     let share = (pool_pop as f32 * GARRISON_SHARE / (1.0 + GARRISON_SHARE)).round() as i32;
-    share.clamp(1, GARRISON_CEILING[(tier as usize).min(GARRISON_CEILING.len() - 1)])
+    share.clamp(
+        1,
+        GARRISON_CEILING[(tier as usize).min(GARRISON_CEILING.len() - 1)],
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -114,7 +117,11 @@ pub const BUILD_COSTS: [(NodeType, i32); 8] = [
 ];
 
 pub fn build_cost(kind: NodeType) -> i32 {
-    BUILD_COSTS.iter().find(|(t, _)| *t == kind).map(|(_, c)| *c).unwrap_or(50)
+    BUILD_COSTS
+        .iter()
+        .find(|(t, _)| *t == kind)
+        .map(|(_, c)| *c)
+        .unwrap_or(50)
 }
 
 // ---------------------------------------------------------------------------
@@ -282,7 +289,10 @@ impl Owner {
     pub fn is_hostile_to(self, other: Owner) -> bool {
         matches!(
             (self, other),
-            (Owner::Bandit, _) | (_, Owner::Bandit) | (Owner::Player, Owner::Enemy) | (Owner::Enemy, Owner::Player)
+            (Owner::Bandit, _)
+                | (_, Owner::Bandit)
+                | (Owner::Player, Owner::Enemy)
+                | (Owner::Enemy, Owner::Player)
         )
     }
 }
@@ -429,18 +439,13 @@ impl Race {
 // Equipment — Fort arms tiers supplied by Mines and Factories
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 pub enum EquipmentTier {
-    Militia,    // Wood/militia
+    #[default]
+    Militia, // Wood/militia
     Bronze,     // Copper/bronze weapons
     IronClad,   // Iron weapons and mail
     SteelSiege, // Steel plate and siege weapons
-}
-
-impl Default for EquipmentTier {
-    fn default() -> Self {
-        EquipmentTier::Militia
-    }
 }
 
 impl EquipmentTier {
@@ -482,9 +487,9 @@ impl EquipmentTier {
 
     pub fn upgrade_cost(&self) -> i32 {
         match self {
-            EquipmentTier::Militia => 10,   // 10 goods
-            EquipmentTier::Bronze => 25,    // 25 goods
-            EquipmentTier::IronClad => 50,  // 50 goods
+            EquipmentTier::Militia => 10,  // 10 goods
+            EquipmentTier::Bronze => 25,   // 25 goods
+            EquipmentTier::IronClad => 50, // 50 goods
             EquipmentTier::SteelSiege => 0,
         }
     }

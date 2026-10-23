@@ -1,51 +1,39 @@
-# Node Empire: Documentation Library
+# Node Empire Documentation
 
-Welcome to the *Node Empire* documentation directory. The documentation is organized into three specialized categories:
+Four kinds of document, four jobs. Nothing here should duplicate another file.
 
-* **[Technical](#1-technical-documentation)**: Architecture, engine pipeline, testing guide, and implementation log.
-* **[Planning](#2-planning--roadmap)**: Seven Kingdoms feature overhaul roadmap, MVP scope, and design questions.
-* **[Design](#3-game-design--worldbuilding)**: Economic philosophy, mechanics calibration, court lore, and species traits.
+| Document | Answers |
+|---|---|
+| [`../README.md`](../README.md) | What is this, what works today, what is missing? |
+| [`../ROADMAP.md`](../ROADMAP.md) | What is planned, in what order, and what counts as done? |
+| [`MECHANICS.md`](MECHANICS.md) | Exactly what the build does, with constants and tests |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | How the code is organised and why |
+| [`TESTING.md`](TESTING.md) | How to write and run tests |
+| [`SETUP.md`](SETUP.md) | How to install the toolchain and build |
+| [`PLAYTESTING.md`](PLAYTESTING.md) | Manual QA checklist |
+| [`VISION.md`](VISION.md) | Long-term design intent (explicitly unimplemented) |
+| [`RESEARCH_7K.md`](RESEARCH_7K.md) | Seven Kingdoms mechanics study and status |
+| [`design/factions.md`](design/factions.md) | The six implemented courts |
 
----
+## Which file should I edit?
 
-## 1. Technical Documentation (`docs/technical/`)
+| Change | Edit |
+|---|---|
+| A rule, constant, or formula | `MECHANICS.md`, plus code and a test |
+| A milestone or priority | `ROADMAP.md` |
+| Engine structure or tick order | `ARCHITECTURE.md` |
+| A new test suite or harness helper | `TESTING.md` |
+| A long-term idea with no code | `VISION.md` |
+| A 7K comparison or research note | `RESEARCH_7K.md` |
+| A court's multipliers | `design/factions.md` (and `types.rs`) |
 
-Specifications and guides for engine architecture, headless simulation invariants, and testing suites:
+## House rules
 
-| Document | Purpose & Contents |
-| :--- | :--- |
-| **[`technical/ARCHITECTURE.md`](technical/ARCHITECTURE.md)** | Engine architecture, Bevy presentation vs headless simulation layer, tick pipeline order of operations, and mathematical growth/order formulas. |
-| **[`technical/TESTING.md`](technical/TESTING.md)** | Headless test suite guide, `ScenarioHarness` fixture builder, invariant validation rules, and testing commands. |
-| **[`technical/IMPLEMENTATION.md`](technical/IMPLEMENTATION.md)** | Historical engineering implementation milestones and commit logs. |
-
----
-
-## 2. Planning & Roadmap (`docs/planning/`)
-
-Strategic roadmaps, milestone criteria, and architectural questions:
-
-| Document | Purpose & Contents |
-| :--- | :--- |
-| **[`planning/changes.md`](planning/changes.md)** | *Seven Kingdoms* & Idle Strategy overhaul roadmap: starter forts, named generals, mutiny mechanics, racial demographics, and equipment tiers. |
-| **[`planning/MVP.md`](planning/MVP.md)** | Minimum viable product scope, initial release deliverables, and milestone checklists. |
-| **[`planning/questions.md`](planning/questions.md)** | Open design questions, mechanics calibration inquiries, and long-term roadmap discussions. |
-
----
-
-## 3. Game Design & Worldbuilding (`docs/design/`)
-
-Game mechanics, macro demographic design, economic calibrations, and faction lore:
-
-| Document | Purpose & Contents |
-| :--- | :--- |
-| **[`design/design_notes.md`](design/design_notes.md)** | Core gameplay design philosophies, automated road logistics, macro demographic management, and economic calibrations. |
-| **[`design/factions.md`](design/factions.md)** | Deep lore, species traits, demographic alignments, and visual color palettes for the six ruling courts. |
-
----
-
-## Contributing to Documentation
-
-When contributing new mechanics, systems, or lore:
-* **Engine/Testing changes**: Document in [`technical/ARCHITECTURE.md`](technical/ARCHITECTURE.md) and [`technical/TESTING.md`](technical/TESTING.md).
-* **Roadmap/Feature progress**: Update [`planning/changes.md`](planning/changes.md).
-* **Factions/Species lore**: Document in [`design/factions.md`](design/factions.md).
+1. **One home per fact.** If it is implemented, `MECHANICS.md` owns it. If it is
+   planned, `ROADMAP.md` owns it. Never both.
+2. **No completion marks outside `ROADMAP.md`.**
+3. **No dates or estimates.** Milestones are ordered, not scheduled.
+4. **Every ✅ names a test.** If the test disappears, the claim does.
+5. **No fixed test counts.** Point at `cargo test`.
+6. **Design intent must be labelled.** `VISION.md` opens with a warning banner
+   for a reason; do not let its ideas drift into the README.

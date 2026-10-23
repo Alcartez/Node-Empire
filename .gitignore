@@ -15,9 +15,7 @@
 *.dll
 *.exe
 
-# Package and Lock Files (User-Requested)
-Cargo.lock
-*.lock
+# Package Artifacts (Cargo.lock is committed: this is an application, not a library)
 *.crate
 /dist/
 /pkg/
@@ -44,4 +42,7 @@ desktop.ini
 # Diagnostics & Crash Logs
 *.log
 crash.dmp
-docs/planning/seven_kingdoms_parity.md
+
+# Out-of-tree research clones (GPL-2.0 Seven Kingdoms sources).
+# Read-only reference for mechanics; never part of the build.
+/scratch/

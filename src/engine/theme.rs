@@ -140,14 +140,7 @@ pub fn rule(ui: &mut Ui) {
 }
 
 /// A slim labelled progress row: `Label ▓▓▓░░ value`.
-pub fn meter_row(
-    ui: &mut Ui,
-    label: &str,
-    value: &str,
-    frac: f32,
-    color: Color32,
-    width: f32,
-) {
+pub fn meter_row(ui: &mut Ui, label: &str, value: &str, frac: f32, color: Color32, width: f32) {
     let (rect, _) = ui.allocate_exact_size(Vec2::new(width, 15.0), Sense::hover());
     let p = ui.painter();
     let label_w = 62.0;

@@ -1,102 +1,96 @@
-# Contributing to Node Empire 👑
+# Contributing to Node Empire
 
-Thank you for your interest in contributing to **Node Empire**! We are building a deep, zero-asset, procedural RTS game inspired by *Seven Kingdoms*, combining the frictionless satisfaction of an idle graph economy with the high-stakes personal drama of military commanders, species tensions, and deep espionage.
+Node Empire is a Rust + Bevy realtime strategy game about road networks,
+villages, garrisons, and espionage. Contributions of code, tests, balance, docs,
+and playtesting are welcome.
 
-Whether you are an experienced Rust veteran, a game designer, a sound composer, or someone looking to make their first open-source pull request, **you are warmly welcome here.**
+Read [`ROADMAP.md`](ROADMAP.md) for what is planned, and
+[`docs/MECHANICS.md`](docs/MECHANICS.md) for what exists. A change that adds a
+feature should point at a milestone; a change that fixes a lie in the docs is
+always welcome.
 
----
+## Where to help
 
-## 🌟 Where Can You Help?
+| Area | Path | Skills |
+|---|---|---|
+| Simulation, economy, AI, espionage | `src/game/` | Rust, algorithms; no Bevy needed |
+| HUD and panels | `src/engine/ui.rs`, `theme.rs` | Rust, egui |
+| Rendering, shaders | `src/engine/render.rs`, `assets/` | Bevy 2D, WGSL/WESL |
+| Balance and tests | `tests/` | Rust, testing, strategy game theory |
+| Docs and lore | `docs/` | Technical writing, Markdown |
+| Audio | not started | Bevy audio or a compatible crate |
 
-You don't need to be a graphics guru or a Bevy wizard to contribute. The project is split into distinct layers:
+## Setup
 
-| Focus Area | Typical Tasks | Required Skills |
-| :--- | :--- | :--- |
-| 🧠 **Core Simulation** (`src/game/`) | Economy formulas, AI logic, pathfinding, general mutiny triggers, spy covert ops. | Pure Rust, data structures, algorithms. **(No Bevy knowledge needed!)** |
-| 🖥️ **Presentation & UI** (`src/engine/ui.rs`) | HUD panels, general cards, demographic info sheets, hotkey ergonomics. | Rust, `egui` |
-| 🎨 **Visuals & Shaders** (`src/engine/render.rs`, `assets/`) | WESL terrain shaders, vector gizmo effects, dynamic road animations. | Bevy 2D, WGSL/WESL, math. |
-| 🔊 **Audio & Sound** | Ambient procedural audio, placement sound effects, battle horns. | Audio engineering, `bevy_audio`/`rodio`/`kira`. |
-| ⚖️ **Balance & Testing** (`tests/`) | Scenario stress tests, edge-case invariants, seed viability, economy calibration. | Rust, testing, strategy game theory. |
-| 📖 **Docs & Lore** (`docs/`) | Court histories, gameplay tutorials, architectural documentation. | Technical writing, Markdown, worldbuilding. |
+Install Rust 1.98 via [rustup](https://rustup.rs/). Windows needs the MSVC C++
+build tools. Full per-OS instructions are in [`docs/SETUP.md`](docs/SETUP.md).
 
----
-
-## 🚀 Quickstart for Developers
-
-### 1. Prerequisites
-- **Rust 1.85+** (Stable). Install via [rustup](https://rustup.rs/).  
-  👉 **Step-by-step OS guide**: See [`docs/technical/SETUP_AND_PLAYTESTING.md`](docs/technical/SETUP_AND_PLAYTESTING.md) for detailed Windows, Linux, and macOS instructions.
-- An OS with Vulkan/DirectX 12/Metal support (Windows, Linux, macOS).
-
-### 2. Clone & Run Headless Tests First
-Because the game engine is headless-first, you can verify your environment in 2 seconds without launching a window:
 ```bash
 git clone https://github.com/Alcartez/Node-Empire.git
 cd Node-Empire
 cargo test
-```
-*If all 30+ tests pass, your environment is 100% verified!*
-
-### 3. Launch the Game
-```bash
 cargo run --release
 ```
-*(Tip: Always run with `--release` or check `[profile.dev]` — Bevy debug builds without optimization can run slowly.)*
 
----
+If `cargo test` compiles and runs, your environment is ready. Do not treat a
+test count in an old document as a target; run the command and read the summary.
 
-## 🏛️ Architectural Invariants (Must-Read)
+## Architectural invariants
 
-Before making PRs, keep these core principles in mind:
+1. **The simulation is pure.**
+   `src/game/` must never import Bevy, and every state type must be
+   serializable. If a feature can be tested headlessly, add a test in `tests/`.
+2. **UI data flows one way.**
+   Panels receive an immutable `Hud` snapshot and emit `Action` values. They
+   never mutate `World`; `engine::app::apply_action` does that centrally.
+3. **Saves stay compatible.**
+   New fields on serializable structs need `#[serde(default)]`, and the change
+   needs a load test.
+4. **No runtime art assets.**
+   Visuals are meshes, gizmos, and code-embedded shaders. Screenshots in
+   `docs/img/` are documentation, not runtime assets.
+5. **No copied Seven Kingdoms code or assets.**
+   `scratch/` holds GPL-2.0 reference clones for reading only. They are not part
+   of the build. See the licence section of the README.
+6. **Tuning lives in `src/game/types.rs`.**
+   Do not scatter balance constants through the engine.
 
-1. **Simulation Purity**:
-   - Code inside `src/game/` must **never import Bevy**. It must remain 100% pure, deterministic, and serializable (`serde_json`).
-   - If a feature can be tested headlessly, write a test in `tests/` for it!
-2. **Unidirectional UI Data Flow**:
-   - Panels in `src/engine/ui.rs` receive an immutable `Hud` snapshot and emit `Action` enums.
-   - Panels never mutate `World` directly; actions are resolved centrally in `engine::app::apply_action`.
-3. **Save Compatibility**:
-   - If you add fields to serializable structs in `game/types.rs`, always add `#[serde(default)]` so existing player saves keep loading.
-4. **Zero Art Assets**:
-   - Do not commit PNGs, JPEGs, or 3D models. All visual elements are procedural meshes, gizmos, or code-embedded WESL shaders.
+## Workflow
 
----
-
-## 🛠️ Contribution Workflow
-
-1. **Find or Open an Issue**:
-   - Check the [Issues](https://github.com/Alcartez/Node-Empire/issues) tab. Look for tags like `good first issue` or `help wanted`.
-   - Discuss major gameplay or architecture changes in an issue before writing large PRs.
-2. **Fork and Branch**:
+1. Open or find an issue. For anything larger than a bug fix, describe the
+   mechanic and the test that will prove it before writing code.
+2. Branch:
    ```bash
-   git checkout -b feature/your-feature-name
+   git checkout -b feature/your-feature
    ```
-3. **Format & Lint**:
-   Ensure your code matches project standards:
+3. Make the change, with a test if it touches `src/game/`.
+4. Run the full gate:
    ```bash
    cargo fmt --check
    cargo clippy --all-targets -- -D warnings
    cargo test
    ```
-4. **Submit a Pull Request**:
-   - Reference the issue number (`Closes #123`).
-   - Describe what changed and include a screenshot/GIF if UI changes were made.
-5. **Code Review**:
-   - A maintainer will review your code promptly. We focus on constructive, friendly, and learning-oriented reviews!
+5. Open a pull request. Reference the issue (`Closes #123`), describe the
+   behaviour change, and note any manual playtest step.
 
----
+## What a good PR contains
 
-## 🎖️ Contributor Recognition & Licensing
+- A focused change, not a mixed refactor.
+- A test named as a sentence describing the rule
+  (`a_fort_alone_is_one_point_short_of_growth`).
+- An update to `docs/MECHANICS.md` if a rule or constant changed.
+- An update to `docs/PLAYTESTING.md` if the change can only be judged by hand.
+- A note in `docs/ARCHITECTURE.md` if the tick pipeline or layers changed.
 
-- Every contributor is permanently credited in [`CONTRIBUTORS.md`](CONTRIBUTORS.md) and inside the in-game Credits screen.
-- All code contributed to Node Empire is licensed under the **GNU General Public License v3.0 (or later)** (`GPL-3.0-or-later`).
-- See [`CONTRIBUTORS.md`](CONTRIBUTORS.md) for the contributor terms and project leadership details.
+## Licensing and credit
 
----
+Contributions are accepted under **GPL-3.0-or-later**, the same licence as the
+project (inbound = outbound). There is no separate contributor licence
+agreement. Contributors are credited in [`CONTRIBUTORS.md`](CONTRIBUTORS.md)
+and in the in-game credits where applicable.
 
-## 💬 Community & Questions
+## Questions
 
-- **Discord**: Join our community and dev team at [discord.gg/TquJzY24Ea](https://discord.gg/TquJzY24Ea).
-- **GitHub Discussions**: For questions, game balance debates, and feature brainstorming.
-- **Found a bug?** Open an issue using our [Bug Report Template](.github/ISSUE_TEMPLATE/bug_report.md).
-- **Need help?** Ping `@Alcartez` or fellow maintainers in the PR/issue thread. We're happy to guide you!
+Use GitHub Issues for bugs (the bug template asks for OS, commit, and
+reproduction steps) and GitHub Discussions for design questions. For a bug,
+include the chronicle panel text and whether `cargo test` still passes.

@@ -25,7 +25,11 @@ fn test_procedural_generation_invariants_across_seeds() {
             .nodes
             .values()
             .find(|n| n.is_settlement() && n.owner == Owner::Player);
-        assert!(player_settlement.is_some(), "Seed {} missing player settlement", seed);
+        assert!(
+            player_settlement.is_some(),
+            "Seed {} missing player settlement",
+            seed
+        );
 
         let player_fort = world
             .nodes
@@ -33,10 +37,7 @@ fn test_procedural_generation_invariants_across_seeds() {
             .find(|n| n.kind == NodeType::Fort && n.owner == Owner::Player);
         assert!(player_fort.is_some(), "Seed {} missing player fort", seed);
 
-        let player_gen = world
-            .generals
-            .iter()
-            .find(|g| g.owner == Owner::Player);
+        let player_gen = world.generals.iter().find(|g| g.owner == Owner::Player);
         assert!(player_gen.is_some(), "Seed {} missing player general", seed);
 
         // Check node invariant sanity
@@ -52,10 +53,32 @@ fn test_procedural_generation_invariants_across_seeds() {
 #[test]
 fn test_save_load_roundtrip_with_new_features() {
     let mut harness = ScenarioHarness::new();
-    let s_id = harness.add_settlement("Capital", Owner::Player, Some(Faction::SilkSpinners), Race::SilkSpinner, 120, 5000);
-    let f_id = harness.add_fort("Grand Fort", Owner::Player, Some(Faction::SilkSpinners), Some(Race::SilkSpinner), 25, EquipmentTier::IronClad);
+    let s_id = harness.add_settlement(
+        "Capital",
+        Owner::Player,
+        Some(Faction::SilkSpinners),
+        Race::SilkSpinner,
+        120,
+        5000,
+    );
+    let f_id = harness.add_fort(
+        "Grand Fort",
+        Owner::Player,
+        Some(Faction::SilkSpinners),
+        Some(Race::SilkSpinner),
+        25,
+        EquipmentTier::IronClad,
+    );
     harness.connect(s_id, f_id, EdgeType::Supply, Owner::Player);
-    harness.add_general("Silk Marshal", Owner::Player, Race::SilkSpinner, Some(f_id), 85, 90, 80);
+    harness.add_general(
+        "Silk Marshal",
+        Owner::Player,
+        Race::SilkSpinner,
+        Some(f_id),
+        85,
+        90,
+        80,
+    );
 
     // Step 50 ticks to accumulate state changes
     harness.step(50);

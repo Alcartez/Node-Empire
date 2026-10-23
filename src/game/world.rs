@@ -77,7 +77,17 @@ impl Node {
         name: String,
     ) -> Self {
         let (population, happiness, public_order, loyalty, tier) = match kind {
-            NodeType::Settlement => (if owner == Owner::Neutral { 80 } else { STARTING_POP }, 65.0, 70.0, 100, 0),
+            NodeType::Settlement => (
+                if owner == Owner::Neutral {
+                    80
+                } else {
+                    STARTING_POP
+                },
+                65.0,
+                70.0,
+                100,
+                0,
+            ),
             NodeType::Fort => (0, 50.0, 80.0, 100, 0),
             NodeType::BanditCamp => (20, 40.0, 30.0, 100, 0),
             _ => (0, 50.0, 60.0, 100, 0),
@@ -132,7 +142,11 @@ impl Node {
     pub fn is_production(&self) -> bool {
         matches!(
             self.kind,
-            NodeType::Farm | NodeType::Mine | NodeType::Woodcamp | NodeType::Factory | NodeType::Market
+            NodeType::Farm
+                | NodeType::Mine
+                | NodeType::Woodcamp
+                | NodeType::Factory
+                | NodeType::Market
         )
     }
 
@@ -402,7 +416,9 @@ impl World {
     }
 
     pub fn edges_of(&self, node_id: u32) -> impl Iterator<Item = &Edge> {
-        self.edges.iter().filter(move |e| e.from == node_id || e.to == node_id)
+        self.edges
+            .iter()
+            .filter(move |e| e.from == node_id || e.to == node_id)
     }
 
     /// (filled posts, workable posts) across everything `owner` holds.
@@ -429,9 +445,9 @@ impl World {
 
     /// Returns the fort ID supplying this settlement, if any.
     pub fn fort_supplying(&self, id: u32) -> Option<u32> {
-        let owner = match self.nodes.get(&id) {
-            Some(n) => n.owner,
-            None => return None,
+        let owner = {
+            let n = self.nodes.get(&id)?;
+            n.owner
         };
         self.edges_of(id).find_map(|e| {
             if e.kind == EdgeType::Supply {
@@ -477,8 +493,7 @@ impl World {
                     .nodes
                     .get(&e.other(id))
                     .map(|n| {
-                        n.kind == NodeType::Farm
-                            && (n.owner == owner || n.owner == Owner::Neutral)
+                        n.kind == NodeType::Farm && (n.owner == owner || n.owner == Owner::Neutral)
                     })
                     .unwrap_or(false)
         })
@@ -528,7 +543,12 @@ impl World {
 
         // Factions with no settlements still "own" their forts/production.
         if queue.is_empty() {
-            queue = self.nodes.values().filter(|n| n.owner == viewer).map(|n| n.id).collect();
+            queue = self
+                .nodes
+                .values()
+                .filter(|n| n.owner == viewer)
+                .map(|n| n.id)
+                .collect();
         }
 
         while let Some(id) = queue.pop() {
@@ -560,7 +580,10 @@ impl World {
 
     /// Total idle population across a faction's settlements.
     pub fn total_pop(&self, owner: Owner) -> i32 {
-        self.settlements_of(owner).into_iter().map(|n| n.population).sum()
+        self.settlements_of(owner)
+            .into_iter()
+            .map(|n| n.population)
+            .sum()
     }
 
     /// Aggregate local stock across a faction's nodes.
@@ -578,7 +601,9 @@ impl World {
     /// Influence of `viewer` over a neutral/enemy settlement, 0..100.
     /// Drives petitions, fomentation, and the Web victory.
     pub fn influence(&self, viewer: Owner, target_id: u32) -> f32 {
-        let Some(target) = self.nodes.get(&target_id) else { return 0.0 };
+        let Some(target) = self.nodes.get(&target_id) else {
+            return 0.0;
+        };
         if target.owner == viewer || !target.is_settlement() {
             return 0.0;
         }
@@ -603,7 +628,7 @@ impl World {
             if settlements.is_empty() {
                 50.0
             } else {
-                settlements.iter().map(|n| n.happiness as f32).sum::<f32>() / settlements.len() as f32
+                settlements.iter().map(|n| n.happiness).sum::<f32>() / settlements.len() as f32
             }
         };
 
@@ -624,23 +649,19 @@ impl World {
             .count() as f32
             * 8.0;
 
-        let spy_bonus = if self
-            .spies
-            .iter()
-            .any(|s| s.owner == viewer && s.target == target_id && s.status == SpyStatus::Embedded)
-        {
-            25.0
-        } else {
-            0.0
-        };
+        let spy_bonus =
+            if self.spies.iter().any(|s| {
+                s.owner == viewer && s.target == target_id && s.status == SpyStatus::Embedded
+            }) {
+                25.0
+            } else {
+                0.0
+            };
 
-        let raw = (king * 8.0)
-            + (food * 0.06)
-            + ((happiness - 50.0) * 0.35)
-            + trade_bonus
-            + spy_bonus
-            - (min_dist * 0.9)
-            + 22.0;
+        let raw =
+            (king * 8.0) + (food * 0.06) + ((happiness - 50.0) * 0.35) + trade_bonus + spy_bonus
+                - (min_dist * 0.9)
+                + 22.0;
 
         raw.clamp(0.0, 100.0)
     }
@@ -697,10 +718,9 @@ impl World {
         if straight > MAX_EDGE_TILES || straight < MIN_EDGE_TILES {
             return None;
         }
-        let path = self.map.find_road(
-            (a.x as i32, a.y as i32),
-            (b.x as i32, b.y as i32),
-        )?;
+        let path = self
+            .map
+            .find_road((a.x as i32, a.y as i32), (b.x as i32, b.y as i32))?;
         Some(EDGE_BASE_COST + path.len() as i32)
     }
 
@@ -710,7 +730,10 @@ impl World {
         let nb = self.nodes.get(&b)?;
 
         // Fort ↔ hostile fort or bandit camp: battle.
-        if na.kind == NodeType::Fort && nb.kind == NodeType::Fort && na.owner.is_hostile_to(nb.owner) {
+        if na.kind == NodeType::Fort
+            && nb.kind == NodeType::Fort
+            && na.owner.is_hostile_to(nb.owner)
+        {
             return Some(EdgeType::Combat);
         }
         if (na.kind == NodeType::Fort && nb.kind == NodeType::BanditCamp)
@@ -844,7 +867,12 @@ impl World {
                 }
             }
             _ => {
-                if terrain == Terrain::Forest && matches!(kind, NodeType::Settlement | NodeType::Market | NodeType::Laboratory) {
+                if terrain == Terrain::Forest
+                    && matches!(
+                        kind,
+                        NodeType::Settlement | NodeType::Market | NodeType::Laboratory
+                    )
+                {
                     return Err("Clear ground needed (not forest)".into());
                 }
             }
@@ -964,7 +992,8 @@ impl World {
         // A fort being demolished releases its garrison back home if possible.
         self.nodes.remove(&node_id);
         self.edges.retain(|e| e.from != node_id && e.to != node_id);
-        self.spies.retain(|s| s.home != node_id && s.target != node_id);
+        self.spies
+            .retain(|s| s.home != node_id && s.target != node_id);
 
         match payer {
             Owner::Enemy => self.enemy_ledger.gold += refund,
@@ -981,6 +1010,25 @@ impl World {
     pub fn train_worker(&mut self, node_id: u32, tier: usize, payer: Owner) -> Result<(), String> {
         let cost = TRAIN_COSTS[tier];
         let skill = TRAIN_SKILLS[tier];
+
+        // Validate the destination before taking any gold, so a refused command
+        // never costs the player.
+        let job = {
+            let node = self.nodes.get(&node_id).ok_or("No such node")?;
+            if node.owner != payer {
+                return Err("Not your building".into());
+            }
+            if !node.is_production()
+                && node.kind != NodeType::Fort
+                && node.kind != NodeType::Laboratory
+            {
+                return Err("Train workers at production buildings, forts, or labs".into());
+            }
+            if node.worker_count() >= node.job_slots() {
+                return Err("This building is fully staffed".into());
+            }
+            node.kind.job()
+        };
 
         let ledger_ok = match payer {
             Owner::Enemy => self.enemy_ledger.gold >= cost,
@@ -1009,18 +1057,8 @@ impl World {
         let name = agent_name(self.rng.next_u64());
 
         let node = self.nodes.get_mut(&node_id).ok_or("No such node")?;
-        if node.owner != payer {
-            return Err("Not your building".into());
-        }
-        if !node.is_production() && node.kind != NodeType::Fort && node.kind != NodeType::Laboratory {
-            return Err("Train workers at production buildings, forts, or labs".into());
-        }
-        if node.worker_count() >= node.job_slots() {
-            return Err("This building is fully staffed".into());
-        }
-
-        let job = node.kind.job();
-        node.workers.push(Worker::new(job, skill, train_ticks, name));
+        node.workers
+            .push(Worker::new(job, skill, train_ticks, name));
 
         // The worker is drawn from settlement population.
         if let Some(s) = self.nodes.get_mut(&source) {
@@ -1031,7 +1069,12 @@ impl World {
     }
 
     /// Dismiss a worker (half the training cost refunded).
-    pub fn dismiss_worker(&mut self, node_id: u32, index: usize, payer: Owner) -> Result<i32, String> {
+    pub fn dismiss_worker(
+        &mut self,
+        node_id: u32,
+        index: usize,
+        payer: Owner,
+    ) -> Result<i32, String> {
         let removed = {
             let node = self.nodes.get_mut(&node_id).ok_or("No such node")?;
             if node.owner != payer {
@@ -1125,7 +1168,11 @@ impl World {
     }
 
     pub fn set_spy_op(&mut self, spy_id: u32, op: SpyOp, payer: Owner) -> Result<(), String> {
-        let spy = self.spies.iter_mut().find(|s| s.id == spy_id).ok_or("No such agent")?;
+        let spy = self
+            .spies
+            .iter_mut()
+            .find(|s| s.id == spy_id)
+            .ok_or("No such agent")?;
         if spy.owner != payer {
             return Err("Not your agent".into());
         }
@@ -1135,7 +1182,11 @@ impl World {
     }
 
     pub fn recall_spy(&mut self, spy_id: u32, payer: Owner) -> Result<(), String> {
-        let spy = self.spies.iter_mut().find(|s| s.id == spy_id).ok_or("No such agent")?;
+        let spy = self
+            .spies
+            .iter_mut()
+            .find(|s| s.id == spy_id)
+            .ok_or("No such agent")?;
         if spy.owner != payer {
             return Err("Not your agent".into());
         }
@@ -1216,7 +1267,10 @@ impl World {
             .cost_to_advance()
             .ok_or("Already in the Steel Age")?;
         if ledger.tech < cost {
-            return Err(format!("Need {} research points (have {})", cost, ledger.tech));
+            return Err(format!(
+                "Need {} research points (have {})",
+                cost, ledger.tech
+            ));
         }
         ledger.tech -= cost;
         ledger.age = Age::from_index(ledger.age.index() + 1);
@@ -1235,7 +1289,10 @@ impl World {
                 Owner::Enemy => self.enemy_ledger.gold,
                 _ => self.player_ledger.gold,
             };
-            return Err(format!("Need {} gold to bestow bonus (have {})", cost, gold));
+            return Err(format!(
+                "Need {} gold to bestow bonus (have {})",
+                cost, gold
+            ));
         }
 
         let (name, new_loyalty) = {
@@ -1256,7 +1313,10 @@ impl World {
         if payer == Owner::Player {
             self.log(
                 EventKind::Good,
-                format!("Bestowed 50g bonus to {}: loyalty is now {}%!", name, new_loyalty),
+                format!(
+                    "Bestowed 50g bonus to {}: loyalty is now {}%!",
+                    name, new_loyalty
+                ),
             );
         }
         Ok(())
@@ -1318,14 +1378,17 @@ impl World {
 
         // Player capital: north-west quadrant. Enemy: south-east.
         let pw = self.map.nearest_passable(cols / 7, rows / 7, 3);
-        let ew = self.map.nearest_passable(cols - cols / 7, rows - rows / 7, 3);
+        let ew = self
+            .map
+            .nearest_passable(cols - cols / 7, rows - rows / 7, 3);
 
         let pid = self.spawn_settlement(Owner::Player, pw.0, pw.1);
         let eid = self.spawn_settlement(Owner::Enemy, ew.0, ew.1);
 
         // Neutral settlements scattered through the middle.
         let neutral_count = 16;
-        let mut placed: Vec<(f32, f32)> = vec![(pw.0 as f32, pw.1 as f32), (ew.0 as f32, ew.1 as f32)];
+        let mut placed: Vec<(f32, f32)> =
+            vec![(pw.0 as f32, pw.1 as f32), (ew.0 as f32, ew.1 as f32)];
         let mut villages: Vec<u32> = Vec::new();
         for _ in 0..neutral_count {
             if let Some((x, y)) = self.find_spot(&placed, 12.0, true) {
@@ -1396,7 +1459,9 @@ impl World {
     /// the nearest buildable tile. A settlement without a food link starves to
     /// zero population and used to be an unrecoverable start.
     fn bootstrap_settlement(&mut self, capital: u32) {
-        let Some(cap) = self.nodes.get(&capital) else { return };
+        let Some(cap) = self.nodes.get(&capital) else {
+            return;
+        };
         let (cx, cy, owner) = (cap.x, cap.y, cap.owner);
 
         let starters = [
@@ -1432,11 +1497,7 @@ impl World {
                     continue;
                 }
                 // Clear of anything already built.
-                if self
-                    .nodes
-                    .values()
-                    .any(|n| Map::dist(n.x, n.y, x, y) < 3.0)
-                {
+                if self.nodes.values().any(|n| Map::dist(n.x, n.y, x, y) < 3.0) {
                     continue;
                 }
                 placed = Some((x, y));
@@ -1509,8 +1570,12 @@ impl World {
     /// Free starter road (no gold charged). Falls back to a straight line when
     /// A* cannot route, so a starter link is never silently lost.
     fn free_road(&mut self, from: u32, to: u32, owner: Owner) -> bool {
-        let Some(a) = self.nodes.get(&from) else { return false };
-        let Some(b) = self.nodes.get(&to) else { return false };
+        let Some(a) = self.nodes.get(&from) else {
+            return false;
+        };
+        let Some(b) = self.nodes.get(&to) else {
+            return false;
+        };
         let (ax, ay) = (a.x as i32, a.y as i32);
         let (bx, by) = (b.x as i32, b.y as i32);
         let path = self
@@ -1541,7 +1606,15 @@ impl World {
             Owner::Enemy => Some(self.enemy_faction),
             _ => None,
         };
-        let mut n = Node::new(id, NodeType::Settlement, owner, faction, x as f32, y as f32, name);
+        let mut n = Node::new(
+            id,
+            NodeType::Settlement,
+            owner,
+            faction,
+            x as f32,
+            y as f32,
+            name,
+        );
         n.population = STARTING_POP;
         n.stock.food = STARTING_FOOD;
         n.stock.ore = 0;
@@ -1626,7 +1699,12 @@ impl World {
 
     /// Find a spot for a neutral settlement: far from existing nodes,
     /// passable, inside the map.
-    fn find_spot(&mut self, existing: &[(f32, f32)], min_dist: f32, avoid_edges: bool) -> Option<(f32, f32)> {
+    fn find_spot(
+        &mut self,
+        existing: &[(f32, f32)],
+        min_dist: f32,
+        avoid_edges: bool,
+    ) -> Option<(f32, f32)> {
         for _ in 0..300 {
             let x = self.rng.range_f(4.0, self.map.cols as f32 - 4.0);
             let y = self.rng.range_f(4.0, self.map.rows as f32 - 4.0);
@@ -1641,7 +1719,10 @@ impl World {
                     continue;
                 }
             }
-            if existing.iter().all(|(ex, ey)| Map::dist(*ex, *ey, x, y) >= min_dist) {
+            if existing
+                .iter()
+                .all(|(ex, ey)| Map::dist(*ex, *ey, x, y) >= min_dist)
+            {
                 return Some((x, y));
             }
         }
@@ -1649,7 +1730,12 @@ impl World {
     }
 
     /// Find a spot suitable for a specific resource building.
-    fn find_resource_spot(&mut self, kind: NodeType, existing: &[(f32, f32)], min_dist: f32) -> Option<(f32, f32)> {
+    fn find_resource_spot(
+        &mut self,
+        kind: NodeType,
+        existing: &[(f32, f32)],
+        min_dist: f32,
+    ) -> Option<(f32, f32)> {
         for _ in 0..400 {
             let x = self.rng.range_f(3.0, self.map.cols as f32 - 3.0);
             let y = self.rng.range_f(3.0, self.map.rows as f32 - 3.0);
@@ -1668,7 +1754,10 @@ impl World {
             if !ok {
                 continue;
             }
-            if existing.iter().all(|(ex, ey)| Map::dist(*ex, *ey, x, y) >= min_dist) {
+            if existing
+                .iter()
+                .all(|(ex, ey)| Map::dist(*ex, *ey, x, y) >= min_dist)
+            {
                 return Some((x, y));
             }
         }
@@ -1677,7 +1766,9 @@ impl World {
 
     /// Connect a capital to its nearest neutral resource (free starter road).
     fn starting_road(&mut self, settlement: u32) {
-        let Some(cap) = self.nodes.get(&settlement) else { return };
+        let Some(cap) = self.nodes.get(&settlement) else {
+            return;
+        };
         let (cx, cy) = (cap.x, cap.y);
         let owner = cap.owner;
 
@@ -1698,7 +1789,10 @@ impl World {
             // Free road (it's part of the starting kit).
             let a = self.nodes[&settlement].clone();
             let b = self.nodes[&target].clone();
-            if let Some(path) = self.map.find_road((a.x as i32, a.y as i32), (b.x as i32, b.y as i32)) {
+            if let Some(path) = self
+                .map
+                .find_road((a.x as i32, a.y as i32), (b.x as i32, b.y as i32))
+            {
                 let id = self.next_id;
                 self.next_id += 1;
                 self.edges.push(Edge {
@@ -1718,7 +1812,9 @@ impl World {
     /// Spawn an initial fortified stronghold linked to a capital by a Supply road,
     /// garrisoned with troops and commanded by a founding General.
     fn spawn_starter_fort(&mut self, capital_id: u32) {
-        let Some(cap) = self.nodes.get(&capital_id) else { return };
+        let Some(cap) = self.nodes.get(&capital_id) else {
+            return;
+        };
         let (cx, cy, owner, faction) = (cap.x, cap.y, cap.owner, cap.faction);
         let race = faction.map(|f| f.native_race()).unwrap_or(Race::Human);
 
@@ -1776,8 +1872,12 @@ impl World {
 
     /// Free starter Supply road (from settlement to fort).
     fn free_supply_road(&mut self, from: u32, to: u32, owner: Owner) -> bool {
-        let Some(a) = self.nodes.get(&from) else { return false };
-        let Some(b) = self.nodes.get(&to) else { return false };
+        let Some(a) = self.nodes.get(&from) else {
+            return false;
+        };
+        let Some(b) = self.nodes.get(&to) else {
+            return false;
+        };
         let (ax, ay) = (a.x as i32, a.y as i32);
         let (bx, by) = (b.x as i32, b.y as i32);
         let path = self
@@ -1803,6 +1903,10 @@ impl World {
 /// Pick a random enemy faction different from the player's.
 fn random_enemy_faction(player: Faction, seed: u64) -> Faction {
     let mut rng = Rng::new(seed ^ 0xDEAD_BEEF);
-    let options: Vec<Faction> = FACTIONS.iter().map(|f| f.id).filter(|f| *f != player).collect();
+    let options: Vec<Faction> = FACTIONS
+        .iter()
+        .map(|f| f.id)
+        .filter(|f| *f != player)
+        .collect();
     options[rng.index(options.len())]
 }

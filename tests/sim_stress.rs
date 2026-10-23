@@ -26,14 +26,16 @@ fn stress_6000_ticks() {
     'outer: for dy in -6..=6 {
         for dx in -6..=6 {
             let (fx, fy) = (sx as i32 + dx, sy as i32 + dy);
-            if w.map.in_bounds(fx, fy) && w.map.terrain_at(fx, fy).buildable() {
-                if w.can_place(NodeType::Fort, fx as f32, fy as f32, Owner::Player).is_ok() {
-                    fort_id = Some(
-                        w.place_building(NodeType::Fort, fx as f32, fy as f32, Owner::Player)
-                            .expect("fort placed"),
-                    );
-                    break 'outer;
-                }
+            if w.map.in_bounds(fx, fy)
+                && w.map.terrain_at(fx, fy).buildable()
+                && w.can_place(NodeType::Fort, fx as f32, fy as f32, Owner::Player)
+                    .is_ok()
+            {
+                fort_id = Some(
+                    w.place_building(NodeType::Fort, fx as f32, fy as f32, Owner::Player)
+                        .expect("fort placed"),
+                );
+                break 'outer;
             }
         }
     }
@@ -48,9 +50,10 @@ fn stress_6000_ticks() {
                 max_fort_pop = max_fort_pop.max(n.population);
             }
         }
-        if w.edges.iter().any(|e| {
-            matches!(e.kind, EdgeType::Combat | EdgeType::Siege)
-        }) {
+        if w.edges
+            .iter()
+            .any(|e| matches!(e.kind, EdgeType::Combat | EdgeType::Siege))
+        {
             saw_combat_edge = true;
         }
         if w.victory.is_some() {
@@ -66,7 +69,10 @@ fn stress_6000_ticks() {
             gold0,
             w.player().gold
         );
-        assert!(w.settlements_of(Owner::Player).len() >= 1, "player lost all settlements");
+        assert!(
+            !w.settlements_of(Owner::Player).is_empty(),
+            "player lost all settlements"
+        );
     }
 
     // Fort garrisons are being fed via Supply edges over the long run.
@@ -97,18 +103,23 @@ fn supply_feeding_moves_pop_into_fort() {
         .map(|n| (n.id, n.x, n.y, n.population))
         .expect("player has a starting settlement");
     let (sid, sx, sy, spop) = settlement;
-    assert!(spop > 12, "starter settlement pop {spop} too low to feed forts");
+    assert!(
+        spop > 12,
+        "starter settlement pop {spop} too low to feed forts"
+    );
 
     // Find a free tile within road range (14 tiles) that is buildable.
     let mut fort_pos = None;
     'outer: for dy in -6..=6 {
         for dx in -6..=6 {
             let (fx, fy) = (sx as i32 + dx, sy as i32 + dy);
-            if w.map.in_bounds(fx, fy) && w.map.terrain_at(fx, fy).buildable() {
-                if w.can_place(NodeType::Fort, fx as f32, fy as f32, Owner::Player).is_ok() {
-                    fort_pos = Some((fx as f32, fy as f32));
-                    break 'outer;
-                }
+            if w.map.in_bounds(fx, fy)
+                && w.map.terrain_at(fx, fy).buildable()
+                && w.can_place(NodeType::Fort, fx as f32, fy as f32, Owner::Player)
+                    .is_ok()
+            {
+                fort_pos = Some((fx as f32, fy as f32));
+                break 'outer;
             }
         }
     }

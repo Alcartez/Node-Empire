@@ -5,18 +5,15 @@
 //!   2. caravan transfers along resource roads
 //!   3. supply feeding forts
 //!   4. settlement governance (food, happiness, order, growth)
-//!   5. combat/siege resolution
-//!   6. espionage
-//!   7. influence / petitions
-//!   8. bandits
-//!   9. training
-//!   10. AI
-//!   11. victory checks
-//!   5. espionage
-//!   6. influence / petitions
-//!   7. bandits
-//!   8. AI
-//!   9. victory checks
+//!   5. auto-employment of connected buildings
+//!   6. general upkeep (salary, loyalty, mutiny)
+//!   7. combat/siege resolution
+//!   8. espionage
+//!   9. influence / petitions
+//!   10. bandits
+//!   11. training
+//!   12. AI
+//!   13. victory checks
 
 use super::ai;
 use super::map::Map;
@@ -75,10 +72,10 @@ impl World {
 
     fn produce(&mut self, player_linked: &HashSet<u32>, enemy_linked: &HashSet<u32>) {
         let tick = self.tick;
-        let player_mult = faction_def(self.player_faction).production
-            * self.player_ledger.age.production_mult();
-        let enemy_mult = faction_def(self.enemy_faction).production
-            * self.enemy_ledger.age.production_mult();
+        let player_mult =
+            faction_def(self.player_faction).production * self.player_ledger.age.production_mult();
+        let enemy_mult =
+            faction_def(self.enemy_faction).production * self.enemy_ledger.age.production_mult();
 
         // Collect ids first to avoid borrow issues.
         let ids: Vec<u32> = self.nodes.keys().copied().collect();
@@ -140,11 +137,21 @@ impl World {
                 NodeType::Farm => {
                     // Base yield comfortably covers ~50 population so a
                     // single linked farm keeps a starter settlement fed.
-                    let base = 5.0 + n.workers.iter().filter(|w| w.job == JobType::Farmer && w.ready()).count() as f32 * 1.5;
+                    let base = 5.0
+                        + n.workers
+                            .iter()
+                            .filter(|w| w.job == JobType::Farmer && w.ready())
+                            .count() as f32
+                            * 1.5;
                     Self::accumulate(n, |s| &mut s.food, base * boosted);
                 }
                 NodeType::Woodcamp => {
-                    let base = 2.0 + n.workers.iter().filter(|w| w.job == JobType::Lumberjack && w.ready()).count() as f32 * 1.5;
+                    let base = 2.0
+                        + n.workers
+                            .iter()
+                            .filter(|w| w.job == JobType::Lumberjack && w.ready())
+                            .count() as f32
+                            * 1.5;
                     Self::accumulate(n, |s| &mut s.timber, base * boosted);
                 }
                 NodeType::Mine => {
@@ -163,7 +170,7 @@ impl World {
                             n.stock.goods += take * 2;
                         }
                         // Fractional carry.
-                        let frac = (cycles - cycles.floor()) as f32;
+                        let frac = cycles - cycles.floor();
                         n.prod_frac += frac;
                         if n.prod_frac >= 1.0 && n.stock.ore > 0 && n.stock.timber > 0 {
                             n.stock.ore -= 1;
@@ -285,7 +292,16 @@ impl World {
 
     /// If `from` has something `to` wants, move it.
     fn move_stock(&mut self, from: u32, to: u32, by: Owner) -> bool {
-        let (want_food, want_ore, want_timber, want_goods, from_owner, to_owner, from_kind, to_kind) = {
+        let (
+            want_food,
+            want_ore,
+            want_timber,
+            want_goods,
+            from_owner,
+            to_owner,
+            from_kind,
+            to_kind,
+        ) = {
             let (f, t) = match (self.nodes.get(&from), self.nodes.get(&to)) {
                 (Some(f), Some(t)) => (f, t),
                 _ => return false,
@@ -363,9 +379,7 @@ impl World {
                 (NodeType::Farm, NodeType::Settlement) if want_food => (|s| &mut s.food, 0),
                 (NodeType::Mine, NodeType::Factory) if want_ore => (|s| &mut s.ore, 0),
                 (NodeType::Mine, NodeType::Market) if want_ore => (|s| &mut s.ore, 0),
-                (NodeType::Woodcamp, NodeType::Factory) if want_timber => {
-                    (|s| &mut s.timber, 0)
-                }
+                (NodeType::Woodcamp, NodeType::Factory) if want_timber => (|s| &mut s.timber, 0),
                 (NodeType::Woodcamp, NodeType::Market) if want_timber => (|s| &mut s.timber, 0),
                 (NodeType::Settlement, NodeType::Market) if want_goods => (|s| &mut s.goods, 0),
                 (NodeType::Factory, NodeType::Settlement) if want_goods => (|s| &mut s.goods, 0),
@@ -420,7 +434,9 @@ impl World {
             return;
         }
         let (name, prev_tier, new_tier) = {
-            let Some(n) = self.nodes.get_mut(&settlement_id) else { return };
+            let Some(n) = self.nodes.get_mut(&settlement_id) else {
+                return;
+            };
             if n.owner != Owner::Neutral || !n.is_settlement() {
                 return;
             }
@@ -430,7 +446,11 @@ impl World {
             *entry = (*entry + gain).min(100.0);
 
             // Tug of war: erode rival fealty
-            let rival = if by == Owner::Player { Owner::Enemy } else { Owner::Player };
+            let rival = if by == Owner::Player {
+                Owner::Enemy
+            } else {
+                Owner::Player
+            };
             if let Some(rf) = n.fealty.get_mut(&rival) {
                 *rf = (*rf - gain * 0.2).max(0.0);
             }
@@ -476,15 +496,19 @@ impl World {
                         }
                     }
                     // Also flip connected neutral starter ring nodes
-                    let ring_targets: Vec<u32> = self.edges.iter().filter_map(|e| {
-                        if e.from == settlement_id {
-                            Some(e.to)
-                        } else if e.to == settlement_id {
-                            Some(e.from)
-                        } else {
-                            None
-                        }
-                    }).collect();
+                    let ring_targets: Vec<u32> = self
+                        .edges
+                        .iter()
+                        .filter_map(|e| {
+                            if e.from == settlement_id {
+                                Some(e.to)
+                            } else if e.to == settlement_id {
+                                Some(e.from)
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
                     for other in ring_targets {
                         if let Some(other_node) = self.nodes.get_mut(&other) {
                             if other_node.owner == Owner::Neutral && other_node.is_production() {
@@ -519,7 +543,7 @@ impl World {
 
     /// Auto-employment: idle settlement population auto-fills connected production buildings.
     fn auto_employ_pass(&mut self) {
-        if self.tick % AUTO_EMPLOY_INTERVAL != 0 {
+        if !self.tick.is_multiple_of(AUTO_EMPLOY_INTERVAL) {
             return;
         }
 
@@ -578,7 +602,9 @@ impl World {
                 if let Some(target) = self.nodes.get_mut(&target_id) {
                     let job = target.kind.job();
                     let name = super::map::agent_name(self.rng.next_u64());
-                    target.workers.push(Worker::new(job, AUTO_EMPLOY_START_SKILL, 0, name));
+                    target
+                        .workers
+                        .push(Worker::new(job, AUTO_EMPLOY_START_SKILL, 0, name));
                 }
             }
         }
@@ -597,7 +623,7 @@ impl World {
     /// excess marches home again, and a fort that loses its Supply road sends
     /// its troops back to the nearest friendly settlement.
     fn supply_forts(&mut self) {
-        if self.tick % 6 != 0 {
+        if !self.tick.is_multiple_of(6) {
             return;
         }
 
@@ -622,10 +648,11 @@ impl World {
         }
 
         for (settlement_id, fort_id) in pairs {
-            let (s_pop, s_tier, f_pop) = match (self.nodes.get(&settlement_id), self.nodes.get(&fort_id)) {
-                (Some(s), Some(f)) => (s.population, s.tier, f.population),
-                _ => continue,
-            };
+            let (s_pop, s_tier, f_pop) =
+                match (self.nodes.get(&settlement_id), self.nodes.get(&fort_id)) {
+                    (Some(s), Some(f)) => (s.population, s.tier, f.population),
+                    _ => continue,
+                };
             let cap = garrison_cap(s_tier, s_pop + f_pop);
             if f_pop < cap && s_pop > 1 {
                 // One villager takes up the spear this cycle.
@@ -648,7 +675,7 @@ impl World {
 
         // Orphaned garrisons: a fort with no Supply road is not being fed, so
         // its troops drift home to the nearest friendly settlement.
-        if self.tick % 24 == 0 {
+        if self.tick.is_multiple_of(24) {
             let orphans: Vec<u32> = self
                 .nodes
                 .values()
@@ -705,7 +732,18 @@ impl World {
 
         for id in ids {
             // ---- read phase (immutable) ----
-            let (owner, food, pop, tier, loyalty, besieged, happiness, public_order, dominant_race, name) = {
+            let (
+                owner,
+                food,
+                pop,
+                tier,
+                loyalty,
+                besieged,
+                happiness,
+                public_order,
+                dominant_race,
+                name,
+            ) = {
                 let n = match self.nodes.get(&id) {
                     Some(n) => n,
                     None => continue,
@@ -743,7 +781,11 @@ impl World {
                 if let Some(fort) = self.nodes.get(&fid) {
                     if let Some(gid) = fort.general_id {
                         if let Some(gen) = self.general(gid) {
-                            let harmony = if Some(gen.race) == dominant_race { 1.15 } else { 0.90 };
+                            let harmony = if Some(gen.race) == dominant_race {
+                                1.15
+                            } else {
+                                0.90
+                            };
                             gen.fort_order_bonus() * harmony
                         } else {
                             ORDER_FORT_BONUS
@@ -776,10 +818,8 @@ impl World {
             // stable but stagnant rather than spiralling to zero.
             let civic = if starving { 0.0 } else { ORDER_CIVIC_BASE };
             let siege_penalty = if besieged { ORDER_SIEGE_PENALTY } else { 0.0 };
-            let target_order = civic
-                + employment * ORDER_EMPLOYMENT_WEIGHT
-                + fort_order
-                - siege_penalty;
+            let target_order =
+                civic + employment * ORDER_EMPLOYMENT_WEIGHT + fort_order - siege_penalty;
             let new_public_order =
                 (public_order + (target_order - public_order) * ORDER_PULL + ORDER_DRIFT)
                     .clamp(0.0, 100.0);
@@ -796,7 +836,7 @@ impl World {
                 // being enough on its own.
                 (pop, food - eat, happiness)
             };
-            if starving && owner == Owner::Player && self.tick % 50 == 0 {
+            if starving && owner == Owner::Player && self.tick.is_multiple_of(50) {
                 messages.push((EventKind::Bad, format!("{} is starving!", name)));
             }
 
@@ -809,7 +849,8 @@ impl World {
                 if self.rng.chance(chance) {
                     new_pop += 1;
                 }
-            } else if new_pop == 0 && (new_food >= eat * 10 || (new_food >= eat && self.fed_by_link(id)))
+            } else if new_pop == 0
+                && (new_food >= eat * 10 || (new_food >= eat && self.fed_by_link(id)))
             {
                 // Empty but well-stocked — or empty but still supplied by a
                 // road: settlers drift in rather than leaving a dead node
@@ -879,7 +920,7 @@ impl World {
 
     /// Periodic general salary payment, loyalty drift, and mutiny check.
     fn general_upkeep_pass(&mut self) {
-        if self.tick % 100 != 0 {
+        if !self.tick.is_multiple_of(100) {
             return;
         }
 
@@ -889,8 +930,14 @@ impl World {
         for gen in &mut self.generals {
             let salary = gen.salary;
             let (has_gold, ledger_gold) = match gen.owner {
-                Owner::Player => (self.player_ledger.gold >= salary, &mut self.player_ledger.gold),
-                Owner::Enemy => (self.enemy_ledger.gold >= salary, &mut self.enemy_ledger.gold),
+                Owner::Player => (
+                    self.player_ledger.gold >= salary,
+                    &mut self.player_ledger.gold,
+                ),
+                Owner::Enemy => (
+                    self.enemy_ledger.gold >= salary,
+                    &mut self.enemy_ledger.gold,
+                ),
                 _ => (true, &mut self.player_ledger.gold),
             };
 
@@ -914,7 +961,7 @@ impl World {
             if gen.loyalty < 20 && (gen.owner == Owner::Player || gen.owner == Owner::Enemy) {
                 if gen.loyalty < 10 {
                     revolts.push((gen.id, gen.fort_id, gen.name.clone()));
-                } else if gen.owner == Owner::Player && self.tick % 200 == 0 {
+                } else if gen.owner == Owner::Player && self.tick.is_multiple_of(200) {
                     warnings.push(format!(
                         "CRITICAL: {} loyalty is dangerously low ({}%)! Risk of mutiny!",
                         gen.name, gen.loyalty
@@ -971,11 +1018,7 @@ impl World {
                     (Some(x), Some(y)) => (x, y),
                     _ => continue,
                 };
-                (
-                    na.owner,
-                    nb.owner,
-                    na.owner.is_hostile_to(nb.owner),
-                )
+                (na.owner, nb.owner, na.owner.is_hostile_to(nb.owner))
             };
             if !hostile {
                 continue;
@@ -1101,7 +1144,11 @@ impl World {
 
         // Capture logic.
         if a_falls && !b_falls {
-            let new_owner = if owner_b == Owner::Bandit { Owner::Neutral } else { owner_b };
+            let new_owner = if owner_b == Owner::Bandit {
+                Owner::Neutral
+            } else {
+                owner_b
+            };
             self.capture_node(a, new_owner, owner_b);
             if owner_b == Owner::Player {
                 self.stats.battles_won += 1;
@@ -1118,7 +1165,11 @@ impl World {
                 }
             }
         } else if b_falls && !a_falls {
-            let new_owner = if owner_a == Owner::Bandit { Owner::Neutral } else { owner_a };
+            let new_owner = if owner_a == Owner::Bandit {
+                Owner::Neutral
+            } else {
+                owner_a
+            };
             self.capture_node(b, new_owner, owner_a);
             if owner_a == Owner::Player {
                 self.stats.battles_won += 1;
@@ -1183,7 +1234,9 @@ impl World {
         }
         defense *= set_race.defense_multiplier();
 
-        let siege_power = (garr as f32 * 0.10 * (1.0 + def_bonus * 0.02) * fort_equip.combat_mult() * gen_mult).max(0.1);
+        let siege_power =
+            (garr as f32 * 0.10 * (1.0 + def_bonus * 0.02) * fort_equip.combat_mult() * gen_mult)
+                .max(0.1);
         let damage = (siege_power / defense).round() as i32;
 
         let mut falls = false;
@@ -1232,7 +1285,10 @@ impl World {
                 self.stats.settlements_taken += 1;
                 self.log(EventKind::War, format!("You have captured {}!", name));
             } else if fort_owner == Owner::Enemy {
-                self.log(EventKind::War, format!("{} has fallen to your enemy!", name));
+                self.log(
+                    EventKind::War,
+                    format!("{} has fallen to your enemy!", name),
+                );
             }
         }
     }
@@ -1241,7 +1297,11 @@ impl World {
     /// and update labels.
     fn capture_node(&mut self, id: u32, new_owner: Owner, _capturer: Owner) {
         let old_owner = self.nodes.get(&id).map(|n| n.owner);
-        let name = self.nodes.get(&id).map(|n| n.name.clone()).unwrap_or_default();
+        let name = self
+            .nodes
+            .get(&id)
+            .map(|n| n.name.clone())
+            .unwrap_or_default();
         let kind = self.nodes.get(&id).map(|n| n.kind);
 
         if let Some(n) = self.nodes.get_mut(&id) {
@@ -1280,10 +1340,11 @@ impl World {
             }
         });
 
-        if old_owner == Some(Owner::Player) && new_owner != Owner::Player {
-            if kind == Some(NodeType::Settlement) {
-                self.log(EventKind::War, format!("{} has been lost!", name));
-            }
+        if old_owner == Some(Owner::Player)
+            && new_owner != Owner::Player
+            && kind == Some(NodeType::Settlement)
+        {
+            self.log(EventKind::War, format!("{} has been lost!", name));
         }
     }
 
@@ -1295,36 +1356,18 @@ impl World {
         let mut dead_spies: Vec<u32> = Vec::new();
         let mut events: Vec<(EventKind, String)> = Vec::new();
 
-        // Travel progress.
+        // Embedded agents age; travel progress is advanced by the distance-aware
+        // pass below so each leg takes `distance * SPY_TRAVEL_TICKS_PER_TILE` ticks.
         for spy in self.spies.iter_mut() {
-            match spy.status {
-                SpyStatus::Traveling | SpyStatus::Returning => {
-                    let (from, to) = if spy.status == SpyStatus::Traveling {
-                        (spy.home, spy.target)
-                    } else {
-                        (spy.target, spy.home)
-                    };
-                    let (fx, fy, tx, ty) = match (from, to) {
-                        (f, t) => {
-                            // Positions resolved lazily below via node lookup;
-                            // store as 0 and fix with a second pass.
-                            (f, t, f, t)
-                        }
-                    };
-                    let _ = (fx, fy, tx, ty);
-                    spy.progress += 1.0 / SPY_TRAVEL_TICKS_PER_TILE; // scaled by distance in pass below
-                }
-                SpyStatus::Embedded => {
-                    spy.embed_ticks += 1;
-                }
+            if spy.status == SpyStatus::Embedded {
+                spy.embed_ticks += 1;
             }
         }
 
-        // Distance-correct travel: recompute progress rate properly.
         for i in 0..self.spies.len() {
-            let (status, home, target, progress) = {
+            let (status, home, target) = {
                 let s = &self.spies[i];
-                (s.status, s.home, s.target, s.progress)
+                (s.status, s.home, s.target)
             };
             if status == SpyStatus::Embedded {
                 continue;
@@ -1356,7 +1399,6 @@ impl World {
                     dead_spies.push(spy.id);
                 }
             }
-            let _ = progress;
         }
 
         // Embedded operations.
@@ -1399,7 +1441,7 @@ impl World {
                 SpyOp::Incite => 0.022,
             };
             let risk = base_risk * counter / faction_spy_mult * (60.0 / (skill as f32 + 20.0));
-            if self.rng.chance(risk as f32) {
+            if self.rng.chance(risk) {
                 caught.push(self.spies[i].id);
                 continue;
             }
@@ -1440,27 +1482,25 @@ impl World {
                         t.public_order = (t.public_order - 0.9).max(0.0);
                     }
                     // Rebellion at zero loyalty: defected to the spy's side.
-                    if target_loyalty - 1 - skill / 40 <= 0 {
-                        if self.rng.chance(0.35) {
-                            let new_owner = owner;
-                            let name = target_name.clone();
-                            if let Some(t) = self.nodes.get_mut(&target) {
-                                t.owner = new_owner;
-                                t.faction = match new_owner {
-                                    Owner::Player => Some(self.player_faction),
-                                    Owner::Enemy => Some(self.enemy_faction),
-                                    _ => None,
-                                };
-                                t.loyalty = 60;
-                                t.happiness = 55.0;
-                                t.population = (t.population / 2).max(10);
-                            }
-                            events.push((
-                                EventKind::Spy,
-                                format!("Your agents have turned {} against its rulers!", name),
-                            ));
-                            caught.push(self.spies[i].id); // mission done, exfil
+                    if target_loyalty - 1 - skill / 40 <= 0 && self.rng.chance(0.35) {
+                        let new_owner = owner;
+                        let name = target_name.clone();
+                        if let Some(t) = self.nodes.get_mut(&target) {
+                            t.owner = new_owner;
+                            t.faction = match new_owner {
+                                Owner::Player => Some(self.player_faction),
+                                Owner::Enemy => Some(self.enemy_faction),
+                                _ => None,
+                            };
+                            t.loyalty = 60;
+                            t.happiness = 55.0;
+                            t.population = (t.population / 2).max(10);
                         }
+                        events.push((
+                            EventKind::Spy,
+                            format!("Your agents have turned {} against its rulers!", name),
+                        ));
+                        caught.push(self.spies[i].id); // mission done, exfil
                     }
                 }
                 SpyOp::Infiltrate => {
@@ -1480,7 +1520,11 @@ impl World {
                     self.stats.spies_caught += 1;
                     events.push((
                         EventKind::Spy,
-                        format!("{} was captured in {}!", spy.name, self.node_name(spy.target)),
+                        format!(
+                            "{} was captured in {}!",
+                            spy.name,
+                            self.node_name(spy.target)
+                        ),
                     ));
                 } else if spy.owner == Owner::Enemy {
                     events.push((
@@ -1500,7 +1544,10 @@ impl World {
     }
 
     fn node_name(&self, id: u32) -> String {
-        self.nodes.get(&id).map(|n| n.name.clone()).unwrap_or("somewhere".into())
+        self.nodes
+            .get(&id)
+            .map(|n| n.name.clone())
+            .unwrap_or("somewhere".into())
     }
 
     // -----------------------------------------------------------------
@@ -1552,7 +1599,7 @@ impl World {
         if self.bandit_timer > 0 {
             return;
         }
-        self.bandit_timer = 180 + (self.rng.next_u64() % 120) as u64;
+        self.bandit_timer = 180 + (self.rng.next_u64() % 120);
 
         // Gather camps and their targets.
         let camps: Vec<(u32, f32, f32, i32)> = self
@@ -1598,7 +1645,10 @@ impl World {
                     self.player_ledger.gold -= gold_steal;
                     self.log(
                         EventKind::Bad,
-                        format!("Bandits raided {}! ({} gold, food stolen)", victim_name, gold_steal),
+                        format!(
+                            "Bandits raided {}! ({} gold, food stolen)",
+                            victim_name, gold_steal
+                        ),
                     );
                 }
                 Some(Owner::Enemy) => {
@@ -1629,7 +1679,7 @@ impl World {
                     }
                 } else {
                     // Slow on-the-job growth.
-                    if w.skill < 100 && self.tick % 30 == 0 {
+                    if w.skill < 100 && self.tick.is_multiple_of(30) {
                         w.skill += 1;
                     }
                 }

@@ -109,7 +109,10 @@ fn every_seed_spawns_a_viable_capital() {
         let fort = w.node(fort_id).expect("fort node");
         assert_eq!(fort.owner, Owner::Player);
         assert!(fort.population >= 5, "seed {seed}: fort has < 5 garrison");
-        assert!(fort.general_id.is_some(), "seed {seed}: fort has no commanding general");
+        assert!(
+            fort.general_id.is_some(),
+            "seed {seed}: fort has no commanding general"
+        );
 
         // Five simulated minutes later it is still a going concern.
         for _ in 0..300 {
@@ -190,4 +193,3 @@ fn the_starter_fort_and_general_are_spawned() {
     assert_eq!(enemy_fort.owner, Owner::Enemy);
     assert!(enemy_fort.general_id.is_some());
 }
-

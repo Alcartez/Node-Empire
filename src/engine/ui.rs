@@ -107,25 +107,33 @@ pub fn top_bar(ui: &mut Ui, h: &Hud) -> Vec<Action> {
         );
         let inc = led.income_shown;
         ui.label(
-            RichText::new(format!(
-                "{}{:.1}/t",
-                if inc >= 0.0 { "+" } else { "" },
-                inc
-            ))
-            .size(11.0)
-            .color(if inc >= 0.0 { theme::GOOD } else { theme::BAD }),
+            RichText::new(format!("{}{:.1}/t", if inc >= 0.0 { "+" } else { "" }, inc))
+                .size(11.0)
+                .color(if inc >= 0.0 { theme::GOOD } else { theme::BAD }),
         );
 
         ui.add_space(8.0);
         theme::chip(ui, &format!("Food {}", st.food), theme::GOOD);
-        theme::chip(ui, &format!("Timber {}", st.timber), Color32::from_rgb(196, 152, 100));
-        theme::chip(ui, &format!("Ore {}", st.ore), Color32::from_rgb(170, 182, 200));
+        theme::chip(
+            ui,
+            &format!("Timber {}", st.timber),
+            Color32::from_rgb(196, 152, 100),
+        );
+        theme::chip(
+            ui,
+            &format!("Ore {}", st.ore),
+            Color32::from_rgb(170, 182, 200),
+        );
         theme::chip(ui, &format!("Goods {}", st.goods), theme::ACCENT);
-        theme::chip(ui, &format!("Pop {}", w.total_pop(Owner::Player)), theme::NEUTRAL);
+        theme::chip(
+            ui,
+            &format!("Pop {}", w.total_pop(Owner::Player)),
+            theme::NEUTRAL,
+        );
 
         ui.add_space(8.0);
         ui.label(
-            RichText::new(format!("{}", led.age.label()))
+            RichText::new(led.age.label().to_string())
                 .color(theme::TEXT)
                 .size(12.0),
         );
@@ -139,7 +147,8 @@ pub fn top_bar(ui: &mut Ui, h: &Hud) -> Vec<Action> {
             if ui
                 .add_enabled(
                     can,
-                    egui::Button::new(format!("Advance · {} RP", cost)).min_size(egui::vec2(0.0, 22.0)),
+                    egui::Button::new(format!("Advance · {} RP", cost))
+                        .min_size(egui::vec2(0.0, 22.0)),
                 )
                 .on_hover_text("Advance to the next age")
                 .clicked()
@@ -166,16 +175,17 @@ pub fn top_bar(ui: &mut Ui, h: &Hud) -> Vec<Action> {
             for s in [4u8, 2, 1] {
                 let label = format!("{}\u{d7}", s);
                 if ui
-                    .add(egui::Button::selectable(h.speed == s, label).min_size(egui::vec2(32.0, 22.0)))
+                    .add(
+                        egui::Button::selectable(h.speed == s, label)
+                            .min_size(egui::vec2(32.0, 22.0)),
+                    )
                     .clicked()
                 {
                     acts.push(Action::SetSpeed(s));
                 }
             }
             if ui
-                .add(
-                    egui::Button::selectable(h.speed == 0, "II").min_size(egui::vec2(32.0, 22.0)),
-                )
+                .add(egui::Button::selectable(h.speed == 0, "II").min_size(egui::vec2(32.0, 22.0)))
                 .on_hover_text("Pause (Space)")
                 .clicked()
             {
@@ -250,7 +260,13 @@ pub fn left_panel(ui: &mut Ui, h: &Hud) -> Vec<Action> {
 
     theme::section(ui, "Tools");
     let sel = if matches!(h.tool, Tool::Select) { 0 } else { 1 };
-    if let Some(i) = theme::segmented(ui, &["Select  V", "Road  R"], sel, ui.available_width(), 26.0) {
+    if let Some(i) = theme::segmented(
+        ui,
+        &["Select  V", "Road  R"],
+        sel,
+        ui.available_width(),
+        26.0,
+    ) {
         acts.push(Action::SetTool(match i {
             0 => Tool::Select,
             _ => Tool::Road { from: None },
@@ -280,7 +296,9 @@ pub fn left_panel(ui: &mut Ui, h: &Hud) -> Vec<Action> {
     ui.add_space(8.0);
     let hint = match h.tool {
         Tool::Select => "Click a node to inspect it. Right-click deselects, drag to pan.",
-        Tool::Build(NodeType::Mine) => "Click grass bearing orange (copper) or silver (iron) specks.",
+        Tool::Build(NodeType::Mine) => {
+            "Click grass bearing orange (copper) or silver (iron) specks."
+        }
         Tool::Build(NodeType::Woodcamp) => "Click inside dark-green forest.",
         Tool::Build(NodeType::Settlement) => "Click open ground - not forest, water or mountains.",
         Tool::Build(_) => "Click the ground near your network.",
@@ -289,12 +307,7 @@ pub fn left_panel(ui: &mut Ui, h: &Hud) -> Vec<Action> {
     };
     theme::card(ui, |ui| {
         ui.set_min_width(ui.available_width());
-        ui.label(
-            RichText::new("TIP")
-                .size(9.5)
-                .strong()
-                .color(theme::FAINT),
-        );
+        ui.label(RichText::new("TIP").size(9.5).strong().color(theme::FAINT));
         ui.label(RichText::new(hint).size(11.5).color(theme::DIM));
     });
 
@@ -320,7 +333,11 @@ fn build_card(
     } else {
         theme::CARD
     };
-    let fg = if affordable { theme::TEXT } else { theme::FAINT };
+    let fg = if affordable {
+        theme::TEXT
+    } else {
+        theme::FAINT
+    };
     let p = ui.painter();
     p.rect_filled(rect, 7.0, bg);
     p.rect_stroke(
@@ -337,7 +354,11 @@ fn build_card(
         Pos2::new(rect.left() + 18.0, rect.center().y),
         9.5,
         kind,
-        if affordable { theme::ACCENT } else { theme::FAINT },
+        if affordable {
+            theme::ACCENT
+        } else {
+            theme::FAINT
+        },
     );
     p.text(
         Pos2::new(rect.left() + 32.0, rect.center().y - 7.0),
@@ -351,7 +372,11 @@ fn build_card(
         Align2::LEFT_CENTER,
         format!("{}g", cost),
         FontId::proportional(10.5),
-        if affordable { theme::GOLD } else { theme::FAINT },
+        if affordable {
+            theme::GOLD
+        } else {
+            theme::FAINT
+        },
     );
     resp
 }
@@ -389,7 +414,11 @@ fn glyph(p: &Painter, center: Pos2, r: f32, kind: NodeType, color: Color32) {
             p.circle(center, r * 0.85, fill, stroke);
         }
         NodeType::Farm => {
-            p.add(egui::Shape::convex_polygon(ngon(3, -FRAC_PI_2), fill, stroke));
+            p.add(egui::Shape::convex_polygon(
+                ngon(3, -FRAC_PI_2),
+                fill,
+                stroke,
+            ));
         }
         NodeType::Mine => {
             p.add(egui::Shape::convex_polygon(ngon(4, 0.0), fill, stroke));
@@ -405,10 +434,18 @@ fn glyph(p: &Painter, center: Pos2, r: f32, kind: NodeType, color: Color32) {
             p.add(egui::Shape::convex_polygon(ngon(6, 0.0), fill, stroke));
         }
         NodeType::Fort => {
-            p.add(egui::Shape::convex_polygon(ngon(5, -FRAC_PI_2), fill, stroke));
+            p.add(egui::Shape::convex_polygon(
+                ngon(5, -FRAC_PI_2),
+                fill,
+                stroke,
+            ));
         }
         NodeType::BanditCamp => {
-            p.add(egui::Shape::convex_polygon(ngon(3, FRAC_PI_2), fill, stroke));
+            p.add(egui::Shape::convex_polygon(
+                ngon(3, FRAC_PI_2),
+                fill,
+                stroke,
+            ));
         }
     }
 }
@@ -527,8 +564,16 @@ fn realm_tab(ui: &mut Ui, w: &World) {
     ui.add_space(4.0);
     ui.horizontal_wrapped(|ui| {
         theme::chip(ui, &format!("Food {}", st.food), theme::GOOD);
-        theme::chip(ui, &format!("Timber {}", st.timber), Color32::from_rgb(196, 152, 100));
-        theme::chip(ui, &format!("Ore {}", st.ore), Color32::from_rgb(170, 182, 200));
+        theme::chip(
+            ui,
+            &format!("Timber {}", st.timber),
+            Color32::from_rgb(196, 152, 100),
+        );
+        theme::chip(
+            ui,
+            &format!("Ore {}", st.ore),
+            Color32::from_rgb(170, 182, 200),
+        );
         theme::chip(ui, &format!("Goods {}", st.goods), theme::ACCENT);
     });
 
@@ -570,7 +615,11 @@ fn realm_tab(ui: &mut Ui, w: &World) {
         286.0,
     );
     ui.add_space(3.0);
-    ui.label(RichText::new(w.victory_progress()).size(11.5).color(theme::DIM));
+    ui.label(
+        RichText::new(w.victory_progress())
+            .size(11.5)
+            .color(theme::DIM),
+    );
     ui.label(
         RichText::new(
             "Wealth: hoard gold. Web: an infiltrating agent plus 70 influence in every rival \
@@ -599,7 +648,12 @@ fn realm_tab(ui: &mut Ui, w: &World) {
         .color(theme::DIM)
         .size(11.0),
     );
-    ui.label(RichText::new(ef.blurb).italics().size(10.5).color(theme::FAINT));
+    ui.label(
+        RichText::new(ef.blurb)
+            .italics()
+            .size(10.5)
+            .color(theme::FAINT),
+    );
 }
 
 /// Plain-language reasons a settlement's growth roll is blocked.
@@ -618,7 +672,11 @@ fn growth_notes(w: &World, n: &crate::game::world::Node) -> Vec<String> {
         n.public_order,
         filled,
         posts,
-        if fort { "fort supply" } else { "no fort supply" }
+        if fort {
+            "fort supply"
+        } else {
+            "no fort supply"
+        }
     )];
 
     let starving = n.stock.food < (n.population / 10).max(1);
@@ -635,7 +693,12 @@ fn growth_notes(w: &World, n: &crate::game::world::Node) -> Vec<String> {
 
 fn inspector(ui: &mut Ui, w: &World, n: &crate::game::world::Node, acts: &mut Vec<Action>) {
     ui.horizontal(|ui| {
-        ui.label(RichText::new(n.name.as_str()).size(17.0).strong().color(theme::TEXT));
+        ui.label(
+            RichText::new(n.name.as_str())
+                .size(17.0)
+                .strong()
+                .color(theme::TEXT),
+        );
         if n.owner == Owner::Player {
             theme::chip(ui, "yours", theme::GOOD);
         } else if n.besieged {
@@ -663,12 +726,13 @@ fn inspector(ui: &mut Ui, w: &World, n: &crate::game::world::Node, acts: &mut Ve
                     ui.end_row();
                 }
                 ui.label(RichText::new("Population").color(theme::DIM).size(11.0));
-                ui.label(RichText::new(format!("{} \u{b7} {}", n.population, tier)).color(theme::TEXT));
+                ui.label(
+                    RichText::new(format!("{} \u{b7} {}", n.population, tier)).color(theme::TEXT),
+                );
                 ui.end_row();
                 ui.label(RichText::new("Happiness").color(theme::DIM).size(11.0));
                 ui.label(
-                    RichText::new(format!("{:.0}%", n.happiness))
-                        .color(mood_color(n.happiness)),
+                    RichText::new(format!("{:.0}%", n.happiness)).color(mood_color(n.happiness)),
                 );
                 ui.end_row();
                 ui.label(RichText::new("Order").color(theme::DIM).size(11.0));
@@ -684,7 +748,11 @@ fn inspector(ui: &mut Ui, w: &World, n: &crate::game::world::Node, acts: &mut Ve
                     let fealty = n.fealty.get(&Owner::Player).copied().unwrap_or(0.0);
                     let tier = n.fealty_tier(Owner::Player);
                     ui.label(RichText::new("Fealty").color(theme::GOLD).size(11.0));
-                    ui.label(RichText::new(format!("{:.0}% \u{b7} {}", fealty, tier.label())).color(theme::GOLD).strong());
+                    ui.label(
+                        RichText::new(format!("{:.0}% \u{b7} {}", fealty, tier.label()))
+                            .color(theme::GOLD)
+                            .strong(),
+                    );
                     ui.end_row();
                     if let Some(spec) = n.specialty {
                         ui.label(RichText::new("Specialty").color(theme::DIM).size(11.0));
@@ -698,8 +766,16 @@ fn inspector(ui: &mut Ui, w: &World, n: &crate::game::world::Node, acts: &mut Ve
         ui.add_space(3.0);
         ui.horizontal_wrapped(|ui| {
             theme::chip(ui, &format!("Food {}", n.stock.food), theme::GOOD);
-            theme::chip(ui, &format!("Timber {}", n.stock.timber), Color32::from_rgb(196, 152, 100));
-            theme::chip(ui, &format!("Ore {}", n.stock.ore), Color32::from_rgb(170, 182, 200));
+            theme::chip(
+                ui,
+                &format!("Timber {}", n.stock.timber),
+                Color32::from_rgb(196, 152, 100),
+            );
+            theme::chip(
+                ui,
+                &format!("Ore {}", n.stock.ore),
+                Color32::from_rgb(170, 182, 200),
+            );
             theme::chip(ui, &format!("Goods {}", n.stock.goods), theme::ACCENT);
         });
         if let Some(race) = n.dominant_race {
@@ -708,12 +784,24 @@ fn inspector(ui: &mut Ui, w: &World, n: &crate::game::world::Node, acts: &mut Ve
                 Race::Beetlefolk => "Beetlefolk: +20% combat, +35% fort defense, -15% growth",
                 Race::HiveSwarm => "Hive Swarm: rapid expansion +45% growth, +30% appetite",
                 Race::SilkSpinner => "Silk Spinner: artisan lineage, +5% growth, efficient food",
-                Race::Reptilian => "Reptilian: cold-blooded endurance, -25% food, +15% combat valor",
+                Race::Reptilian => {
+                    "Reptilian: cold-blooded endurance, -25% food, +15% combat valor"
+                }
             };
-            ui.label(RichText::new(race_blurb).italics().size(10.5).color(theme::FAINT));
+            ui.label(
+                RichText::new(race_blurb)
+                    .italics()
+                    .size(10.5)
+                    .color(theme::FAINT),
+            );
         }
         if let Some(spec) = n.specialty {
-            ui.label(RichText::new(format!("Specialty: {}", spec.bonus_description())).italics().size(10.5).color(theme::GOLD));
+            ui.label(
+                RichText::new(format!("Specialty: {}", spec.bonus_description()))
+                    .italics()
+                    .size(10.5)
+                    .color(theme::GOLD),
+            );
         }
         if n.besieged {
             ui.colored_label(theme::BAD, "Under siege!");
@@ -736,7 +824,10 @@ fn inspector(ui: &mut Ui, w: &World, n: &crate::game::world::Node, acts: &mut Ve
                 ui.label(RichText::new("Garrison").color(theme::DIM).size(11.0));
                 if n.kind == NodeType::Fort {
                     let cap = w.garrison_cap_at(n.id);
-                    ui.label(format!("{} / {} \u{b7} from its village", n.population, cap));
+                    ui.label(format!(
+                        "{} / {} \u{b7} from its village",
+                        n.population, cap
+                    ));
                 } else {
                     ui.label(format!("{}", n.population));
                 }
@@ -765,12 +856,8 @@ fn inspector(ui: &mut Ui, w: &World, n: &crate::game::world::Node, acts: &mut Ve
                     if ui
                         .add_enabled(
                             can_afford,
-                            egui::Button::new(format!(
-                                "Forge {} ({}g)",
-                                next.label(),
-                                gold_cost
-                            ))
-                            .min_size(egui::vec2(0.0, 22.0)),
+                            egui::Button::new(format!("Forge {} ({}g)", next.label(), gold_cost))
+                                .min_size(egui::vec2(0.0, 22.0)),
                         )
                         .on_hover_text("Upgrade fort garrison weapons and siege defenses")
                         .clicked()
@@ -1043,7 +1130,11 @@ fn mood_color(v: f32) -> Color32 {
 
 fn agents(ui: &mut Ui, w: &World, acts: &mut Vec<Action>) {
     theme::section(ui, "Generals");
-    let my_generals: Vec<&General> = w.generals.iter().filter(|g| g.owner == Owner::Player).collect();
+    let my_generals: Vec<&General> = w
+        .generals
+        .iter()
+        .filter(|g| g.owner == Owner::Player)
+        .collect();
     if my_generals.is_empty() {
         ui.label(
             RichText::new("No generals in your realm.")
@@ -1101,9 +1192,12 @@ fn agents(ui: &mut Ui, w: &World, acts: &mut Vec<Action>) {
                     if ui
                         .add_enabled(
                             gold >= 50 && gen.loyalty < 100,
-                            egui::Button::new("Pay 50g Bonus (+15)").min_size(egui::vec2(0.0, 20.0)),
+                            egui::Button::new("Pay 50g Bonus (+15)")
+                                .min_size(egui::vec2(0.0, 20.0)),
                         )
-                        .on_hover_text("Bribe general with royal treasury gold to secure their loyalty")
+                        .on_hover_text(
+                            "Bribe general with royal treasury gold to secure their loyalty",
+                        )
                         .clicked()
                     {
                         acts.push(Action::PayGeneralBonus(gen.id));
@@ -1116,7 +1210,11 @@ fn agents(ui: &mut Ui, w: &World, acts: &mut Vec<Action>) {
 
     ui.add_space(4.0);
     theme::section(ui, "Spies");
-    let mine: Vec<&Spy> = w.spies.iter().filter(|s| s.owner == Owner::Player).collect();
+    let mine: Vec<&Spy> = w
+        .spies
+        .iter()
+        .filter(|s| s.owner == Owner::Player)
+        .collect();
     if mine.is_empty() {
         ui.label(
             RichText::new("No agents. Select a foreign settlement and send a spy to recruit one.")
@@ -1127,10 +1225,7 @@ fn agents(ui: &mut Ui, w: &World, acts: &mut Vec<Action>) {
         return;
     }
     for s in mine {
-        let tname = w
-            .node(s.target)
-            .map(|n| n.name.clone())
-            .unwrap_or_default();
+        let tname = w.node(s.target).map(|n| n.name.clone()).unwrap_or_default();
         let (st, col) = match s.status {
             SpyStatus::Traveling => ("traveling", theme::WARN),
             SpyStatus::Embedded => ("embedded", theme::SPY),
@@ -1161,7 +1256,12 @@ fn agents(ui: &mut Ui, w: &World, acts: &mut Vec<Action>) {
             });
             ui.add_space(2.0);
             ui.horizontal(|ui| {
-                for op in [SpyOp::Infiltrate, SpyOp::Siphon, SpyOp::Sabotage, SpyOp::Incite] {
+                for op in [
+                    SpyOp::Infiltrate,
+                    SpyOp::Siphon,
+                    SpyOp::Sabotage,
+                    SpyOp::Incite,
+                ] {
                     if ui
                         .add(
                             egui::Button::selectable(s.op == op, op.label())
@@ -1283,6 +1383,31 @@ pub fn help_window(ctx: &egui::Context, open: &mut bool) {
                 .color(theme::TEXT),
             );
 
+            theme::section(ui, "Workers & auto-employment");
+            ui.label(
+                RichText::new(
+                    "Connected farms, woodcamps, mines, factories, markets and laboratories \
+                     hire one novice every second (20 ticks) for free, as long as the village \
+                     keeps at least 5 people. Manual training still buys higher starting skill \
+                     (10/40/80) and workers improve by +1 skill every 30 ticks on the job.",
+                )
+                .size(11.5)
+                .color(theme::TEXT),
+            );
+
+            theme::section(ui, "Fealty & integration");
+            ui.label(
+                RichText::new(
+                    "Roads to a neutral village build fealty: +1.2 per food delivery and +2.5 \
+                     for manufactured goods, while a rival's deliveries erode yours. At 25 the \
+                     village becomes a Trading Partner and pays +3 gold per delivery; at 50 an \
+                     Allied Protector; at 85 it joins your realm peacefully and brings its \
+                     connected farm with it.",
+                )
+                .size(11.5)
+                .color(theme::TEXT),
+            );
+
             theme::section(ui, "War & intrigue");
             ui.label(
                 RichText::new(
@@ -1314,12 +1439,7 @@ pub fn help_window(ctx: &egui::Context, open: &mut bool) {
                         ("Esc", "back / pause menu"),
                     ];
                     for (k, a) in rows {
-                        ui.label(
-                            RichText::new(k)
-                                .size(11.0)
-                                .strong()
-                                .color(theme::ACCENT),
-                        );
+                        ui.label(RichText::new(k).size(11.0).strong().color(theme::ACCENT));
                         ui.label(RichText::new(a).size(11.5).color(theme::DIM));
                         ui.end_row();
                     }
@@ -1435,12 +1555,11 @@ pub fn game_over(ctx: &egui::Context, w: &World) -> Vec<Action> {
         .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
         .show(ctx, |ui| {
             ui.set_min_width(420.0);
-            ui.label(
-                RichText::new(v.blurb())
-                    .italics()
-                    .size(12.0)
-                    .color(if won { theme::GOOD } else { theme::BAD }),
-            );
+            ui.label(RichText::new(v.blurb()).italics().size(12.0).color(if won {
+                theme::GOOD
+            } else {
+                theme::BAD
+            }));
             theme::section(ui, "Chronicle of the war");
             egui::Grid::new("over_stats")
                 .num_columns(2)
@@ -1588,11 +1707,7 @@ pub fn main_menu(ui: &mut Ui, state: &mut MenuState) -> Option<MenuCmd> {
                             ("Growth", def.growth, theme::NEUTRAL),
                         ] {
                             ui.vertical(|ui| {
-                                ui.label(
-                                    RichText::new(label)
-                                        .size(9.5)
-                                        .color(theme::FAINT),
-                                );
+                                ui.label(RichText::new(label).size(9.5).color(theme::FAINT));
                                 theme::micro_bar(ui, (v / 1.6).clamp(0.0, 1.0), col, 74.0);
                                 ui.label(
                                     RichText::new(format!("\u{d7}{:.2}", v))
@@ -1851,8 +1966,13 @@ pub fn map_labels(
                 let snap = Vec2::new(tx + 0.5, ty + 0.5);
                 if let Err(msg) = world.can_place(kind, snap.x, snap.y, Owner::Player) {
                     let p = cam.world_to_screen(rect, snap);
-                    let ghost_r =
-                        (zoom * if kind == NodeType::Settlement { 0.7 } else { 0.5 }).max(6.0);
+                    let ghost_r = (zoom
+                        * if kind == NodeType::Settlement {
+                            0.7
+                        } else {
+                            0.5
+                        })
+                    .max(6.0);
                     painter.text(
                         Pos2::new(p.x, p.y - ghost_r - 6.0),
                         Align2::CENTER_BOTTOM,

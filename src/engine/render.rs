@@ -188,10 +188,13 @@ fn poly_mesh(sides: usize, rot: f32) -> Mesh {
         indices.extend_from_slice(&[0, a, b]);
     }
 
-    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-        .with_inserted_indices(Indices::U32(indices))
+    Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+    .with_inserted_indices(Indices::U32(indices))
 }
 
 /// Polygon definition for a node kind: `Some((sides, rotation))` or `None` for
@@ -251,11 +254,14 @@ fn ribbon_mesh(path: &[(i32, i32)], half: f32) -> Mesh {
         indices.extend_from_slice(&[a, a + 1, a + 2, a + 1, a + 3, a + 2]);
     }
 
-    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; n * 2])
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-        .with_inserted_indices(Indices::U32(indices))
+    Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; n * 2])
+    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+    .with_inserted_indices(Indices::U32(indices))
 }
 
 // ---------------------------------------------------------------------------
@@ -320,7 +326,12 @@ impl Mats {
         })
     }
 
-    fn fill(&mut self, assets: &mut Assets<ColorMaterial>, key: (u8, u8), color: Color) -> Handle<ColorMaterial> {
+    fn fill(
+        &mut self,
+        assets: &mut Assets<ColorMaterial>,
+        key: (u8, u8),
+        color: Color,
+    ) -> Handle<ColorMaterial> {
         let a = assets;
         self.fills
             .entry(key)
@@ -328,7 +339,11 @@ impl Mats {
             .clone()
     }
 
-    fn edge(&mut self, assets: &mut Assets<ColorMaterial>, kind: EdgeType) -> Handle<ColorMaterial> {
+    fn edge(
+        &mut self,
+        assets: &mut Assets<ColorMaterial>,
+        kind: EdgeType,
+    ) -> Handle<ColorMaterial> {
         let key = edge_index(kind);
         self.roads_mut(assets, key, edge_color(kind))
     }
@@ -346,7 +361,12 @@ impl Mats {
             .clone()
     }
 
-    fn dot(&mut self, assets: &mut Assets<ColorMaterial>, key: u8, color: Color) -> Handle<ColorMaterial> {
+    fn dot(
+        &mut self,
+        assets: &mut Assets<ColorMaterial>,
+        key: u8,
+        color: Color,
+    ) -> Handle<ColorMaterial> {
         let a = assets;
         self.dots
             .entry(key)
@@ -585,7 +605,9 @@ pub fn sync_world(
         let embedded = s.status == SpyStatus::Embedded;
         let r_px = if embedded { 3.0 } else { 4.0 };
         let color = owner_color(world, s.owner);
-        let mat = vis.mats.dot(&mut materials, dot_key_for_owner(s.owner), color);
+        let mat = vis
+            .mats
+            .dot(&mut materials, dot_key_for_owner(s.owner), color);
         match spy_pos(world, s) {
             Some(p) => {
                 let pos = wpos(p.x, p.y);
@@ -616,7 +638,9 @@ pub fn sync_world(
     }
 
     // ---- caravans (pooled dots, one per parallel caravan) --------------
-    let caravan_mat = vis.mats.dot(&mut materials, DOT_CARAVAN, rgb([250, 245, 225]));
+    let caravan_mat = vis
+        .mats
+        .dot(&mut materials, DOT_CARAVAN, rgb([250, 245, 225]));
     let mut used = 0usize;
     for e in &world.edges {
         let carry = matches!(e.kind, EdgeType::Resource | EdgeType::Trade);
@@ -861,7 +885,11 @@ pub fn draw_strokes(mut gizmos: Gizmos, state: Res<GameState>, cam: Res<CamView>
         let r = (n.radius() * 0.5).max(MIN_NODE_PX * px);
         let owner = owner_color(world, n.owner);
         let strong = matches!(n.owner, Owner::Player | Owner::Enemy);
-        let stroke = if strong { owner } else { owner.with_alpha(0.75) };
+        let stroke = if strong {
+            owner
+        } else {
+            owner.with_alpha(0.75)
+        };
 
         if n.kind == NodeType::Settlement {
             gizmos.circle_2d(center, r, stroke);
@@ -884,16 +912,8 @@ pub fn draw_strokes(mut gizmos: Gizmos, state: Res<GameState>, cam: Res<CamView>
                 }
                 NodeType::Fort => {
                     let d = r * 0.42;
-                    gizmos.line_2d(
-                        center + Vec2::new(-d, -d),
-                        center + Vec2::new(d, d),
-                        inner,
-                    );
-                    gizmos.line_2d(
-                        center + Vec2::new(-d, d),
-                        center + Vec2::new(d, -d),
-                        inner,
-                    );
+                    gizmos.line_2d(center + Vec2::new(-d, -d), center + Vec2::new(d, d), inner);
+                    gizmos.line_2d(center + Vec2::new(-d, d), center + Vec2::new(d, -d), inner);
                 }
                 _ => {}
             }
@@ -981,5 +1001,5 @@ pub fn on_exit_game(mut vis: ResMut<WorldVis>) {
 
 /// The window background shows through wherever the map does not cover.
 pub fn map_clear_color() -> ClearColor {
-    ClearColor(rgb(MAP_BG).into())
+    ClearColor(rgb(MAP_BG))
 }

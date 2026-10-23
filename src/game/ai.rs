@@ -26,7 +26,7 @@ pub fn tick(world: &mut World) {
     let linked = world.linked_set(Owner::Enemy);
 
     // Re-roll personality occasionally so the AI isn't static.
-    if world.tick % 600 == 0 {
+    if world.tick.is_multiple_of(600) {
         world.ai_personality = (world.rng.next_u64() % 3) as u8;
     }
 
@@ -57,7 +57,11 @@ pub fn tick(world: &mut World) {
 // -------------------------------------------------------------------
 
 fn enemy_settlements(world: &World) -> Vec<u32> {
-    world.settlements_of(Owner::Enemy).into_iter().map(|n| n.id).collect()
+    world
+        .settlements_of(Owner::Enemy)
+        .into_iter()
+        .map(|n| n.id)
+        .collect()
 }
 
 /// The AI's best neutral target by influence.
@@ -161,10 +165,10 @@ fn try_defend(world: &mut World, _linked: &HashSet<u32>) -> bool {
             n.owner == Owner::Player
                 && n.kind == NodeType::Fort
                 && Map::dist(n.x, n.y, sx, sy) < 14.0
-        }) || world.edges.iter().any(|e| {
-            e.kind == EdgeType::Siege
-                && (e.from == *sid || e.to == *sid)
-        });
+        }) || world
+            .edges
+            .iter()
+            .any(|e| e.kind == EdgeType::Siege && (e.from == *sid || e.to == *sid));
 
         if !threatened {
             continue;
@@ -196,7 +200,11 @@ fn try_defend(world: &mut World, _linked: &HashSet<u32>) -> bool {
             if !world.map.in_bounds(tx, ty) || !world.map.terrain_at(tx, ty).buildable() {
                 continue;
             }
-            if world.nodes.values().any(|n| Map::dist(n.x, n.y, x, y) < 3.0) {
+            if world
+                .nodes
+                .values()
+                .any(|n| Map::dist(n.x, n.y, x, y) < 3.0)
+            {
                 continue;
             }
             if let Ok(fort_id) = world.place_building(NodeType::Fort, x, y, Owner::Enemy) {
@@ -220,7 +228,6 @@ fn try_offense(world: &mut World, linked: &HashSet<u32>) -> bool {
         .filter(|n| n.owner == Owner::Enemy && n.kind == NodeType::Fort && n.population > 6)
         .map(|n| (n.id, n.x, n.y, n.population))
         .filter(|(_, _, _, g)| (*g as f32) > 8.0 / (aggression * personality_aggro))
-        .map(|(id, x, y, g)| (id, x, y, g))
         .collect();
 
     for (fid, fx, fy, garrison) in forts {
@@ -253,10 +260,10 @@ fn try_offense(world: &mut World, linked: &HashSet<u32>) -> bool {
                 // Reinforce instead: keep feeding the fort.
                 let settlements = enemy_settlements(world);
                 for sid in settlements {
-                    if world.edge_between(sid, fid).is_none() {
-                        if world.build_road(sid, fid, Owner::Enemy).is_ok() {
-                            return true;
-                        }
+                    if world.edge_between(sid, fid).is_none()
+                        && world.build_road(sid, fid, Owner::Enemy).is_ok()
+                    {
+                        return true;
                     }
                 }
                 continue;
@@ -264,7 +271,13 @@ fn try_offense(world: &mut World, linked: &HashSet<u32>) -> bool {
             // Only attack if we have a reasonable troop advantage.
             let target_pop = world
                 .node(target)
-                .map(|n| if n.kind == NodeType::Fort || n.is_settlement() { n.population } else { 0 })
+                .map(|n| {
+                    if n.kind == NodeType::Fort || n.is_settlement() {
+                        n.population
+                    } else {
+                        0
+                    }
+                })
                 .unwrap_or(0);
             if garrison < target_pop && world.rng.chance(0.6) {
                 continue;
@@ -286,18 +299,19 @@ fn try_expand(world: &mut World, _linked: &HashSet<u32>) -> bool {
             if world.buy_settlement(tid, Owner::Enemy).is_ok() {
                 return true;
             }
-        } else if inf >= 61.0 && world.enemy_ledger.gold >= 100 {
-            if world.foment(tid, Owner::Enemy).is_ok() {
-                return true;
-            }
+        } else if inf >= 61.0
+            && world.enemy_ledger.gold >= 100
+            && world.foment(tid, Owner::Enemy).is_ok()
+        {
+            return true;
         }
     }
 
     // Found a new settlement when flush with gold.
     let settlement_count = world.settlements_of(Owner::Enemy).len();
     let want_more = match world.ai_personality {
-        1 => settlement_count < 4,  // aggressive: forward bases
-        2 => settlement_count < 5,  // economic: more tax base
+        1 => settlement_count < 4, // aggressive: forward bases
+        2 => settlement_count < 5, // economic: more tax base
         _ => settlement_count < 3,
     };
     if !want_more || world.enemy_ledger.gold < 450 {
@@ -305,8 +319,12 @@ fn try_expand(world: &mut World, _linked: &HashSet<u32>) -> bool {
     }
 
     let settlements = enemy_settlements(world);
-    let Some(origin_id) = settlements.first().copied() else { return false };
-    let Some(origin) = world.node(origin_id) else { return false };
+    let Some(origin_id) = settlements.first().copied() else {
+        return false;
+    };
+    let Some(origin) = world.node(origin_id) else {
+        return false;
+    };
     let (ox, oy) = (origin.x, origin.y);
 
     for _ in 0..50 {
@@ -319,7 +337,11 @@ fn try_expand(world: &mut World, _linked: &HashSet<u32>) -> bool {
         if !world.map.in_bounds(tx, ty) || world.map.terrain_at(tx, ty) != Terrain::Grass {
             continue;
         }
-        if world.nodes.values().any(|n| Map::dist(n.x, n.y, x, y) < 5.0) {
+        if world
+            .nodes
+            .values()
+            .any(|n| Map::dist(n.x, n.y, x, y) < 5.0)
+        {
             continue;
         }
         if let Ok(new_id) = world.place_building(NodeType::Settlement, x, y, Owner::Enemy) {
@@ -381,7 +403,11 @@ fn try_spy(world: &mut World) -> bool {
                 }
             }
         };
-        if let Some(spy) = world.spies.iter_mut().find(|s| s.owner == Owner::Enemy && s.target == target) {
+        if let Some(spy) = world
+            .spies
+            .iter_mut()
+            .find(|s| s.owner == Owner::Enemy && s.target == target)
+        {
             spy.op = op;
         }
         return true;
@@ -408,10 +434,9 @@ fn try_train(world: &mut World, _linked: &HashSet<u32>) -> bool {
 
     for fid in forts {
         if let Some(f) = world.node(fid) {
-            if f.worker_count() < f.job_slots() {
-                if world.train_worker(fid, 0, Owner::Enemy).is_ok() {
-                    return true;
-                }
+            if f.worker_count() < f.job_slots() && world.train_worker(fid, 0, Owner::Enemy).is_ok()
+            {
+                return true;
             }
         }
     }
@@ -435,10 +460,15 @@ fn try_train(world: &mut World, _linked: &HashSet<u32>) -> bool {
                     if !world.map.in_bounds(tx, ty) || !world.map.terrain_at(tx, ty).buildable() {
                         continue;
                     }
-                    if world.nodes.values().any(|n| Map::dist(n.x, n.y, x, y) < 3.0) {
+                    if world
+                        .nodes
+                        .values()
+                        .any(|n| Map::dist(n.x, n.y, x, y) < 3.0)
+                    {
                         continue;
                     }
-                    if let Ok(lab) = world.place_building(NodeType::Laboratory, x, y, Owner::Enemy) {
+                    if let Ok(lab) = world.place_building(NodeType::Laboratory, x, y, Owner::Enemy)
+                    {
                         let _ = world.build_road(sid, lab, Owner::Enemy);
                         return true;
                     }

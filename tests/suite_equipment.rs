@@ -19,20 +19,44 @@ fn test_equipment_tier_upgrade_sequence() {
     harness.world.player_ledger.gold = 1000;
 
     // Militia -> Bronze
-    assert_eq!(harness.world.node(f_id).unwrap().equipment, EquipmentTier::Militia);
-    assert!(harness.world.upgrade_fort_equipment(f_id, Owner::Player).is_ok());
-    assert_eq!(harness.world.node(f_id).unwrap().equipment, EquipmentTier::Bronze);
+    assert_eq!(
+        harness.world.node(f_id).unwrap().equipment,
+        EquipmentTier::Militia
+    );
+    assert!(harness
+        .world
+        .upgrade_fort_equipment(f_id, Owner::Player)
+        .is_ok());
+    assert_eq!(
+        harness.world.node(f_id).unwrap().equipment,
+        EquipmentTier::Bronze
+    );
 
     // Bronze -> Iron-Clad
-    assert!(harness.world.upgrade_fort_equipment(f_id, Owner::Player).is_ok());
-    assert_eq!(harness.world.node(f_id).unwrap().equipment, EquipmentTier::IronClad);
+    assert!(harness
+        .world
+        .upgrade_fort_equipment(f_id, Owner::Player)
+        .is_ok());
+    assert_eq!(
+        harness.world.node(f_id).unwrap().equipment,
+        EquipmentTier::IronClad
+    );
 
     // Iron-Clad -> Steel & Siege
-    assert!(harness.world.upgrade_fort_equipment(f_id, Owner::Player).is_ok());
-    assert_eq!(harness.world.node(f_id).unwrap().equipment, EquipmentTier::SteelSiege);
+    assert!(harness
+        .world
+        .upgrade_fort_equipment(f_id, Owner::Player)
+        .is_ok());
+    assert_eq!(
+        harness.world.node(f_id).unwrap().equipment,
+        EquipmentTier::SteelSiege
+    );
 
     // Beyond max tier errors gracefully
-    assert!(harness.world.upgrade_fort_equipment(f_id, Owner::Player).is_err());
+    assert!(harness
+        .world
+        .upgrade_fort_equipment(f_id, Owner::Player)
+        .is_err());
 
     harness.assert_invariants();
 }
@@ -67,7 +91,12 @@ fn test_cannot_upgrade_foreign_fort() {
 
     harness.world.player_ledger.gold = 500;
 
-    let res = harness.world.upgrade_fort_equipment(foe_f_id, Owner::Player);
+    let res = harness
+        .world
+        .upgrade_fort_equipment(foe_f_id, Owner::Player);
     assert!(res.is_err());
-    assert_eq!(harness.world.node(foe_f_id).unwrap().equipment, EquipmentTier::Militia);
+    assert_eq!(
+        harness.world.node(foe_f_id).unwrap().equipment,
+        EquipmentTier::Militia
+    );
 }

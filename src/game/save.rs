@@ -37,7 +37,8 @@ fn slot_path(slot: usize) -> PathBuf {
 }
 
 fn timestamp() -> String {
-    // Format: HH:MM:SS from system time (no chrono dependency).
+    // Format: HH:MM:SS UTC from system time (no chrono dependency, no local
+    // timezone conversion).
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -46,7 +47,7 @@ fn timestamp() -> String {
     let h = secs_of_day / 3600;
     let m = (secs_of_day % 3600) / 60;
     let s = secs_of_day % 60;
-    format!("{:02}:{:02}:{:02}", h, m, s)
+    format!("{:02}:{:02}:{:02} UTC", h, m, s)
 }
 
 pub fn save(world: &World, slot: usize) -> Result<(), String> {
@@ -85,7 +86,9 @@ pub fn summary(slot: usize) -> Option<SaveSummary> {
         saved_at: file.saved_at,
         tick: file.world.tick,
         gold: file.world.player().gold,
-        player_faction: super::types::faction_def(file.world.player_faction).name.to_string(),
+        player_faction: super::types::faction_def(file.world.player_faction)
+            .name
+            .to_string(),
         victory_in_progress: false,
     })
 }
@@ -95,7 +98,7 @@ pub fn maybe_autosave(world: &World) {
     if !world.autosave {
         return;
     }
-    if world.tick > 0 && world.tick % 600 == 0 {
+    if world.tick > 0 && world.tick.is_multiple_of(600) {
         let _ = save(world, 0);
     }
 }

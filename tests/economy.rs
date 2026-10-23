@@ -76,8 +76,12 @@ fn works(w: &mut World, id: u32, kind: NodeType, crew: usize) {
         format!("Works {id}"),
     );
     for i in 0..crew {
-        n.workers
-            .push(Worker::new(kind.job(), TRAIN_SKILLS[0], 0, format!("Hand {i}")));
+        n.workers.push(Worker::new(
+            kind.job(),
+            TRAIN_SKILLS[0],
+            0,
+            format!("Hand {i}"),
+        ));
     }
     w.nodes.insert(id, n);
     w.next_id = w.next_id.max(id + 1);
@@ -187,7 +191,11 @@ fn filling_posts_lifts_order_and_starts_growth() {
     }
 
     let cap = w.node(1).unwrap();
-    assert!(cap.public_order > GROWTH_MIN_ORDER, "order {:.1}", cap.public_order);
+    assert!(
+        cap.public_order > GROWTH_MIN_ORDER,
+        "order {:.1}",
+        cap.public_order
+    );
     assert!(
         cap.happiness > GROWTH_MIN_HAPPINESS,
         "happiness {:.1}",
@@ -259,7 +267,11 @@ fn a_fort_plus_one_staffed_post_reaches_growth() {
     }
 
     let cap = w.node(1).unwrap();
-    assert!(cap.public_order > GROWTH_MIN_ORDER, "order {:.1}", cap.public_order);
+    assert!(
+        cap.public_order > GROWTH_MIN_ORDER,
+        "order {:.1}",
+        cap.public_order
+    );
     assert!(
         cap.happiness > GROWTH_MIN_HAPPINESS,
         "happiness {:.1}",

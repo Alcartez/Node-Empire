@@ -67,6 +67,20 @@ impl ScenarioHarness {
         }
     }
 
+    /// A sandbox with random world events (bandits) disabled and the dummy
+    /// anchor/foe larders emptied, so influence and petitions cannot fire
+    /// behind a scenario's back. Use this for deterministic mechanic tests.
+    pub fn quiet() -> Self {
+        let mut harness = Self::new();
+        harness.world.bandit_timer = u64::MAX;
+        for id in [9998, 9999] {
+            if let Some(node) = harness.world.nodes.get_mut(&id) {
+                node.stock.food = 0;
+            }
+        }
+        harness
+    }
+
     /// Add a settlement to the sandbox with customized demographics and supplies.
     pub fn add_settlement(
         &mut self,
@@ -134,6 +148,7 @@ impl ScenarioHarness {
     }
 
     /// Add a General to the sandbox and optionally assign them to a fort.
+    #[allow(clippy::too_many_arguments)]
     pub fn add_general(
         &mut self,
         name: &str,
@@ -220,7 +235,11 @@ impl ScenarioHarness {
     /// 4. All assigned generals link to extant forts, and fort.general_id matches.
     pub fn assert_invariants(&self) {
         for (&id, n) in &self.world.nodes {
-            assert!(!n.x.is_nan() && !n.y.is_nan(), "Node {} coordinates are NaN", id);
+            assert!(
+                !n.x.is_nan() && !n.y.is_nan(),
+                "Node {} coordinates are NaN",
+                id
+            );
             assert!(
                 !n.happiness.is_nan() && n.happiness >= 0.0 && n.happiness <= 100.0,
                 "Node {} happiness out of bounds: {}",
@@ -233,11 +252,36 @@ impl ScenarioHarness {
                 id,
                 n.public_order
             );
-            assert!(n.population >= 0, "Node {} has negative population: {}", id, n.population);
-            assert!(n.stock.food >= 0, "Node {} has negative food: {}", id, n.stock.food);
-            assert!(n.stock.timber >= 0, "Node {} has negative timber: {}", id, n.stock.timber);
-            assert!(n.stock.ore >= 0, "Node {} has negative ore: {}", id, n.stock.ore);
-            assert!(n.stock.goods >= 0, "Node {} has negative goods: {}", id, n.stock.goods);
+            assert!(
+                n.population >= 0,
+                "Node {} has negative population: {}",
+                id,
+                n.population
+            );
+            assert!(
+                n.stock.food >= 0,
+                "Node {} has negative food: {}",
+                id,
+                n.stock.food
+            );
+            assert!(
+                n.stock.timber >= 0,
+                "Node {} has negative timber: {}",
+                id,
+                n.stock.timber
+            );
+            assert!(
+                n.stock.ore >= 0,
+                "Node {} has negative ore: {}",
+                id,
+                n.stock.ore
+            );
+            assert!(
+                n.stock.goods >= 0,
+                "Node {} has negative goods: {}",
+                id,
+                n.stock.goods
+            );
         }
 
         for (i, edge) in self.world.edges.iter().enumerate() {
@@ -253,11 +297,20 @@ impl ScenarioHarness {
                 i,
                 edge.to
             );
-            assert!(edge.length() > 0.0 && !edge.length().is_nan(), "Edge {} has invalid length", i);
+            assert!(
+                edge.length() > 0.0 && !edge.length().is_nan(),
+                "Edge {} has invalid length",
+                i
+            );
         }
 
         for gen in &self.world.generals {
-            assert!(gen.loyalty <= 100, "General {} has invalid loyalty {}", gen.name, gen.loyalty);
+            assert!(
+                gen.loyalty <= 100,
+                "General {} has invalid loyalty {}",
+                gen.name,
+                gen.loyalty
+            );
             if let Some(fid) = gen.fort_id {
                 let fort = self.world.nodes.get(&fid);
                 assert!(
@@ -279,14 +332,17 @@ impl ScenarioHarness {
 
     /// Assert that serialization and deserialization preserves exact state.
     pub fn assert_serde_roundtrip(&self) {
-        let serialized = serde_json::to_string(&self.world)
-            .expect("World must successfully serialize to JSON");
+        let serialized =
+            serde_json::to_string(&self.world).expect("World must successfully serialize to JSON");
         let deserialized: World = serde_json::from_str(&serialized)
             .expect("Serialized world JSON must deserialize back to World");
 
         assert_eq!(self.world.nodes.len(), deserialized.nodes.len());
         assert_eq!(self.world.edges.len(), deserialized.edges.len());
         assert_eq!(self.world.generals.len(), deserialized.generals.len());
-        assert_eq!(self.world.player_ledger.gold, deserialized.player_ledger.gold);
+        assert_eq!(
+            self.world.player_ledger.gold,
+            deserialized.player_ledger.gold
+        );
     }
 }

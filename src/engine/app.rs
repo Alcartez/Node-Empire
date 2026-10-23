@@ -11,7 +11,7 @@ use bevy::camera::visibility::VisibilitySystems;
 use bevy::camera::{CameraUpdateSystems, ScalingMode};
 use bevy::prelude::*;
 use bevy::transform::TransformSystems;
-use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass, EguiPostUpdateSet};
+use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPostUpdateSet, EguiPrimaryContextPass};
 use egui::{Key, LayerId, PointerButton, Sense, Ui, UiBuilder, Vec2 as EVec2};
 
 use super::errors;
@@ -242,11 +242,7 @@ fn fresh_world(state: &GameState) -> World {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos() as u64)
         .unwrap_or(1337);
-    World::new(
-        seed,
-        state.menu_state.faction,
-        state.menu_state.difficulty,
-    )
+    World::new(seed, state.menu_state.faction, state.menu_state.difficulty)
 }
 
 /// Swap in a world (new game or loaded save), centre on the player's capital
@@ -377,7 +373,11 @@ fn apply_action(
             Err(e) => toast(state, e, now),
         },
         Action::PayGeneralBonus(gid) => match state.world.pay_general_bonus(gid, Owner::Player) {
-            Ok(_) => toast(state, "General bestowed with gold bonus (+15 loyalty).", now),
+            Ok(_) => toast(
+                state,
+                "General bestowed with gold bonus (+15 loyalty).",
+                now,
+            ),
             Err(e) => toast(state, e, now),
         },
         Action::UpgradeFortEquipment(fid) => {
@@ -628,7 +628,7 @@ fn map_panel(
         .status
         .as_ref()
         .filter(|(_, exp)| now <= *exp)
-        .map(|(m, exp)| (m.as_str(), (*exp - now).min(1.0).max(0.0) as f32));
+        .map(|(m, exp)| (m.as_str(), (*exp - now).clamp(0.0, 1.0) as f32));
     let painter = ui.painter().with_clip_rect(rect);
     ui::map_labels(
         &painter,
@@ -779,7 +779,14 @@ fn egui_frame(
             cmd = Some(MenuCmd::Help);
         }
         for (i, def) in FACTIONS.iter().enumerate() {
-            let key = [Key::Num1, Key::Num2, Key::Num3, Key::Num4, Key::Num5, Key::Num6][i];
+            let key = [
+                Key::Num1,
+                Key::Num2,
+                Key::Num3,
+                Key::Num4,
+                Key::Num5,
+                Key::Num6,
+            ][i];
             if ctx.input(|inp| inp.key_pressed(key)) {
                 cmd = Some(MenuCmd::SetFaction(def.id));
             }

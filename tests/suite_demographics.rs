@@ -9,10 +9,24 @@ fn test_reptilian_food_conservation_vs_hive_swarm_consumption() {
     let mut harness = ScenarioHarness::new();
 
     // Reptilian settlement: 100 population, 1000 food
-    let rep_id = harness.add_settlement("Coldscale", Owner::Player, Some(Faction::Mez), Race::Reptilian, 100, 1000);
+    let rep_id = harness.add_settlement(
+        "Coldscale",
+        Owner::Player,
+        Some(Faction::Mez),
+        Race::Reptilian,
+        100,
+        1000,
+    );
 
     // Hive Swarm settlement: 100 population, 1000 food
-    let hive_id = harness.add_settlement("Broodnest", Owner::Player, Some(Faction::HiveSwarms), Race::HiveSwarm, 100, 1000);
+    let hive_id = harness.add_settlement(
+        "Broodnest",
+        Owner::Player,
+        Some(Faction::HiveSwarms),
+        Race::HiveSwarm,
+        100,
+        1000,
+    );
 
     // Step 100 ticks (20 consumption cycles)
     harness.step(100);

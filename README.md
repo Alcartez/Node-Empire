@@ -3,110 +3,154 @@
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/TquJzY24Ea)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
-A realtime strategy game of roads, villages, garrisons and spies. You start with one village and a few fields, and you
-win by weaving the map together: claim nodes, staff them, keep the peace, and
-take the rest by influence or by force.
+A realtime strategy game about **roads, villages, garrisons and spies**. You
+begin with one village and a few fields, and expand by connecting the map:
+claim nodes, staff them, keep the peace, and take the rest by trade, influence,
+or force.
 
 Built on [Bevy](https://bevyengine.org) 0.20 with **zero art assets**. Every
-visual on screen is a shape drawn in code or a procedural texture generated at
-startup; the only file in `assets/` is a WESL shader that is compiled into the
-binary with `include_str!`. All text is drawn by egui.
+visual is a shape drawn in code or a procedural texture generated at startup;
+the only file in `assets/` is a WESL shader compiled into the binary with
+`include_str!`. All text is drawn by egui.
 
+> **Current state: single-player alpha (v0.3.0).** The simulation is real and
+> tested; the content is thin. There are two real powers plus neutral villages,
+> six court profiles that are stat multipliers (not asymmetric factions), one AI
+> opponent, no audio, and placeholder procedural visuals. This is not a Seven
+> Kingdoms remake or clone. The honest inventory is
+> [`docs/MECHANICS.md`](docs/MECHANICS.md); what is still missing is
+> [`ROADMAP.md`](ROADMAP.md).
+
+![Court selection and difficulty](docs/img/menu.png)
+![The realm view with the Node inspector open](docs/img/realm.png)
+
+## Play
+
+```bash
+git clone https://github.com/Alcartez/Node-Empire.git
+cd Node-Empire
+cargo run --release
 ```
-cargo run --release     # play
-cargo test              # the whole simulation, headless, no window
-```
 
-Rust 1.85+ (developed on 1.98). Saves live in `saves/` next to the executable's
-working directory.
+Rust **1.98** is pinned by `rust-toolchain.toml` (install via
+[rustup](https://rustup.rs/)). Windows needs the MSVC build tools. Saves are
+plain JSON in `saves/` next to the working directory; the autosave runs every
+600 ticks.
 
-## The game in one screen
+Controls: `WASD`/drag pan, wheel zoom, `LMB` select or place, `RMB` cancel,
+`Space` pause, `1/2/3` speed, `V` select tool, `R` road tool, `0` quick-save,
+`H` help, `Esc` back.
 
-- **Nodes and roads.** The map is a graph: settlements, farms, woodcamps, mines,
-  factories, markets, laboratories and forts, joined by roads that caravans walk.
-  A producer only works if a road reaches it, which is the whole claim mechanic.
-- **Workers and jobs.** Post workers at a building to boost its output; their
-  skill grows on the job. Workers are drawn from settlement population.
-- **Public order, growth and garrisons.** Order comes from *employment* (how many
-  of your workable posts are actually staffed) and from a Supply road to one of
-  your forts. A settlement grows while happiness is above 55 and order above 40.
-  An idle realm sits at 34/34 and stagnates; a fort alone reaches 54 — one point
-  short, on purpose. Garrisons take at most a fifth of the village feeding them
-  (8/12/16/20 by tier) and march home when the village shrinks.
-- **Influence and petitions.** Trade roads and a healthy treasury win hearts; a
-  well-regarded court can absorb independent villages without a fight.
-- **Espionage** is the signature system: train agents, then infiltrate, siphon,
-  sabotage or incite. Victory condition *The Silent Web* needs an agent embedded
-  in every rival settlement plus deep influence there.
-- **Six courts** — Silk Spinners, Breplid Clans and four more — trade espionage,
-  combat, production, defense, trade and growth bonuses.
-- **Victory:** Wealth (gold), Domination (every enemy settlement), The Silent Web
-  (espionage), or lose when your last settlement falls.
+## What works today
 
-The in-game **H** help window covers the same rules, and
-[`docs/technical/ARCHITECTURE.md`](docs/technical/ARCHITECTURE.md) has the engine tour, the exact order/growth
-formulas and the tick pipeline.
+Every ✅ row is backed by a test in `tests/`.
+
+| System | Status | Evidence |
+|---|---|---|
+| Procedural 120×90 map, viable start on 200 seeds | ✅ | `spawn.rs`, `suite_invariants.rs` |
+| Roads, A* pathing, caravans, production chain | ✅ | `economy.rs`, `sim_stress.rs` |
+| Public order, happiness, growth gates | ✅ | `economy.rs` |
+| Garrisons, supply roads, tier caps | ✅ | `economy.rs`, `sim_stress.rs` |
+| Auto-employment of connected buildings | ✅ | `suite_auto_employ.rs` |
+| Manual worker training and skill growth | ✅ | `suite_training.rs` |
+| Generals: salary, loyalty, mutiny | ✅ | `suite_generals.rs` |
+| Fort equipment tiers | ✅ | `suite_equipment.rs` |
+| Races as passive multipliers | ✅ | `suite_demographics.rs` |
+| Neutral fealty, tiers, peaceful integration | ✅ | `suite_fealty.rs` |
+| Save/load with schema back-compat | ✅ | `economy.rs`, `suite_invariants.rs` |
+| Influence, petitions, buy/foment | 🟡 thin: works, no dedicated suite | — |
+| Espionage, combat, sieges, bandits | 🟡 thin: stress-tested only | — |
+| Victory conditions | 🟡 thin: simple predicates, no direct test | — |
+| Six courts | 🟡 stat profiles only; no unique units or buildings | — |
+| Audio, diplomacy, multi-faction, migration | ❌ not implemented | — |
+
+Legend: ✅ shipped and tested · 🟡 works but thin · ❌ not implemented.
+
+## Known limitations
+
+- **The fealty dividend has no cost or decay.** A Trading Partner road pays +3
+  gold per delivery forever, which is a slow money printer. Fix is scheduled for
+  M1.
+- **Espionage and influence are under-tested.** They run in the long stress
+  simulation, but there is no focused suite yet.
+- **One opponent, one map type.** The map is always 120×90 and the enemy is a
+  single AI faction with a difficulty setting.
+- **Courts are not asymmetric.** The six profiles change multipliers and
+  happiness; they do not add units, buildings, or abilities.
+- **No audio, fog of war, diplomacy, or multiplayer.**
+- **General salary is a flat 15 gold** and unpaid loyalty drops by 6 per upkeep
+  cycle. Balance work on command is scheduled for M2.
+
+## Design pillars
+
+1. **Set the network, watch it grow, respond to events.** The player is a
+   network architect, not a unit micromanager.
+2. **Connection is claim.** A road is ownership, logistics, and politics at once.
+3. **Soft power is real power.** Trade and influence can absorb a village
+   without a battle.
+4. **Command has a price.** Generals are useful and disloyal; spies are cheap and
+   deniable.
+
+The long-term fantasy — and an explicit list of what is **not** implemented — is
+in [`docs/VISION.md`](docs/VISION.md).
 
 ## Documentation
 
-Full documentation is organized into subdirectories in [`docs/`](docs/):
+| Document | Contents |
+|---|---|
+| [`ROADMAP.md`](ROADMAP.md) | The only roadmap: status legend, M0–M5, open decisions |
+| [`docs/MECHANICS.md`](docs/MECHANICS.md) | Every implemented rule, constant, and formula |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Simulation/presentation split, tick order, rendering, saves |
+| [`docs/TESTING.md`](docs/TESTING.md) | Harness, suites, commands, coverage rules |
+| [`docs/SETUP.md`](docs/SETUP.md) | Toolchain install on Windows, Linux, macOS |
+| [`docs/PLAYTESTING.md`](docs/PLAYTESTING.md) | Manual QA checklist and diagnostics |
+| [`docs/VISION.md`](docs/VISION.md) | Long-term design intent (not a feature list) |
+| [`docs/RESEARCH_7K.md`](docs/RESEARCH_7K.md) | Seven Kingdoms mechanics study and status |
+| [`docs/design/factions.md`](docs/design/factions.md) | The six implemented courts |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Workflow and architectural invariants |
+| [`CONTRIBUTORS.md`](CONTRIBUTORS.md) | Credits and contribution terms |
 
-### Technical ([`docs/technical/`](docs/technical/))
-* [`docs/technical/SETUP_AND_PLAYTESTING.md`](docs/technical/SETUP_AND_PLAYTESTING.md) — Rustup installation (Windows/Linux/Mac) and manual playtesting protocol.
-* [`docs/technical/ARCHITECTURE.md`](docs/technical/ARCHITECTURE.md) — Engine layers, tick pipeline, economy formulas, and headless invariants.
-* [`docs/technical/TESTING.md`](docs/technical/TESTING.md) — Developer testing guide, `ScenarioHarness` fixture builder, and test suite commands.
-* [`docs/technical/IMPLEMENTATION.md`](docs/technical/IMPLEMENTATION.md) — Historical engineering implementation log.
+## Contributing
 
-### Planning ([`docs/planning/`](docs/planning/))
-* [`docs/planning/changes.md`](docs/planning/changes.md) — *Seven Kingdoms* & Idle Strategy overhaul roadmap and feature status.
-* [`docs/planning/MVP.md`](docs/planning/MVP.md) — Minimum viable product scope and milestone criteria.
-* [`docs/planning/questions.md`](docs/planning/questions.md) — Open design decisions and future considerations.
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md). Before opening a PR, run:
 
-### Game Design & Lore ([`docs/design/`](docs/design/))
-* [`docs/design/design_notes.md`](docs/design/design_notes.md) — Core mechanics design, automated road logistics, and economic calibrations.
-* [`docs/design/factions.md`](docs/design/factions.md) — Lore, species traits, and stat modifiers for the six courts.
-* [`backup/README.md`](backup/README.md) — The two retired engines kept for reference.
+```bash
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+cargo test
+```
 
-## Roadmap & Contributing
+The simulation layer (`src/game/`) is pure Rust with no Bevy imports, so almost
+everything is testable headlessly. New mechanics need a test; new UI needs a
+playtest step.
 
-- 💬 **Join our Discord**: [discord.gg/TquJzY24Ea](https://discord.gg/TquJzY24Ea) — playtester feedback, developer discussion, and feature brainstorming.
-- 🗺️ **Full Development Roadmap**: See [`ROADMAP.md`](ROADMAP.md) for milestone breakdowns, active features, and upcoming phases.
-- 🤝 **Get Involved**: Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for our contribution guide, developer setup, and architectural guidelines.
-- 👥 **Authors & Credits**: See [`CONTRIBUTORS.md`](CONTRIBUTORS.md) for licensing agreements and contributor listings.
-
-## License
+## Licence
 
 Copyright (C) 2026 the Node Empire authors.
 
-Node Empire is free and open-source software licensed under the terms of the
-**GNU General Public License, version 3** (or any later version) as published by
-the Free Software Foundation. See [`LICENSE`](LICENSE) for the full text.
+Node Empire is free software under the **GNU General Public License v3.0 or
+later** (`GPL-3.0-or-later`). See [`LICENSE`](LICENSE). Contributions are
+accepted under the same licence (inbound = outbound).
 
-All author credits, contributions, and licensing agreements are documented in
-[`CONTRIBUTORS.md`](CONTRIBUTORS.md). Under GPL-3.0 Section 5(d), attribution and
-interactive credits must be preserved in all derivative distributions.
+### Relationship to Seven Kingdoms
 
-### A note on Seven Kingdoms (attribution, not endorsement)
+Node Empire is an **independent implementation**. No Seven Kingdoms source code,
+strings, artwork, data files, or other assets are included in the build. The
+mechanics were studied from the freely published GPL-2.0 sources of *Seven
+Kingdoms* / *Seven Kingdoms II* (7KAA and 7K-Ambition, via
+[7kfans.com](https://www.7kfans.com)); those clones live only in the gitignored
+`scratch/` directory as read-only references and are never compiled, linked, or
+shipped. Because no code is copied or adapted, the GPL-2.0 and GPL-3.0 licences
+do not interact.
 
-Node Empire is *inspired by* the mechanics of **Seven Kingdoms / Seven Kingdoms
-II: The Fryhtan Wars**, the classic 1997 realtime strategy game by Trevor Chan
-(Enlight Software, later distributed freely as GPL-2.0 source by the community at
-[7kfans.com](https://www.7kfans.com)).
-
-- This is a **clean-room implementation**. No 7KAA source code, no strings, no
-  artwork, no data files and no other assets were copied, ported or translated
-  into this project. What was taken is *mechanics* — ideas such as firms with a
-  handful of workers, villages that need food, garrisons that eat population,
-  and influence over independent settlements — and game mechanics are not
-  copyrightable.
-- Node Empire has its own identity, its own scale and its own balance; it is not
-  a clone, not a remake, and it is **not affiliated with, endorsed by, or
-  supported by** Trevor Chan, Enlight Software, or the 7kfans project.
-- "Seven Kingdoms" and "Seven Kingdoms II" are the trademarks of their owners
-  and are used here only to describe where the design inspiration came from.
+"Seven Kingdoms" and "Seven Kingdoms II" are trademarks of their owners and are
+used only to describe the design inspiration. Node Empire is not affiliated
+with, endorsed by, or supported by Trevor Chan, Enlight Software, or the 7kfans
+project.
 
 ### Third-party dependencies
 
-Bevy, egui and the other crates in `Cargo.lock` are used under their own
-licences (Bevy and egui are dual MIT / Apache-2.0). Both are permissive and
-compatible with distributing Node Empire under the GPL-3.0.
+Bevy, egui, serde, and the other crates in `Cargo.lock` are used under their own
+licences (Bevy and egui are dual MIT / Apache-2.0), all compatible with
+GPL-3.0-or-later distribution. `Cargo.lock` is committed so builds are
+reproducible.
