@@ -485,11 +485,23 @@ impl EquipmentTier {
         }
     }
 
-    pub fn upgrade_cost(&self) -> i32 {
+    /// Gold cost to reach the next tier.
+    pub fn upgrade_gold(&self) -> i32 {
         match self {
-            EquipmentTier::Militia => 10,  // 10 goods
-            EquipmentTier::Bronze => 25,   // 25 goods
-            EquipmentTier::IronClad => 50, // 50 goods
+            EquipmentTier::Militia => 50,
+            EquipmentTier::Bronze => 125,
+            EquipmentTier::IronClad => 250,
+            EquipmentTier::SteelSiege => 0,
+        }
+    }
+
+    /// Goods cost to reach the next tier. Equipment is forged from the
+    /// settlement economy, not bought with coin alone.
+    pub fn upgrade_goods(&self) -> i32 {
+        match self {
+            EquipmentTier::Militia => 15,
+            EquipmentTier::Bronze => 40,
+            EquipmentTier::IronClad => 80,
             EquipmentTier::SteelSiege => 0,
         }
     }
@@ -556,6 +568,20 @@ impl General {
     /// Combat power multiplier contributed by this commander.
     pub fn combat_multiplier(&self) -> f32 {
         1.0 + (self.combat as f32 / 100.0) * 0.5
+    }
+
+    /// Extra defensive multiplier a commander brings to the fort they hold.
+    /// Leadership is the main term; a disloyal commander is distracted and
+    /// contributes less. Max +30% at 100 leadership and 100 loyalty.
+    pub fn fort_defense_multiplier(&self) -> f32 {
+        1.0 + (self.leadership as f32 / 100.0) * 0.20 + (self.loyalty as f32 / 100.0) * 0.10
+    }
+
+    /// Loyalty restored per 100-tick cycle to the town this fort supplies.
+    /// A charismatic commander steadies the countryside; even a poor one
+    /// holds the line for a point.
+    pub fn loyalty_aura(&self) -> i32 {
+        (self.leadership as i32 / 25).max(1)
     }
 }
 

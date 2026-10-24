@@ -53,13 +53,14 @@ Every ✅ row is backed by a test in `tests/`.
 | Garrisons, supply roads, tier caps | ✅ | `economy.rs`, `sim_stress.rs` |
 | Auto-employment of connected buildings | ✅ | `suite_auto_employ.rs` |
 | Manual worker training and skill growth | ✅ | `suite_training.rs` |
-| Generals: salary, loyalty, mutiny | ✅ | `suite_generals.rs` |
-| Fort equipment tiers | ✅ | `suite_equipment.rs` |
+| Generals: salary, loyalty, mutiny, fort defense & town loyalty aura | ✅ | `suite_generals.rs` |
+| Fort equipment tiers: gold + goods, supply-gated | ✅ | `suite_equipment.rs` |
+| Node war: fort battles, siege investment, supply pressure | ✅ | `suite_combat.rs` |
 | Races as passive multipliers | ✅ | `suite_demographics.rs` |
 | Neutral fealty, tiers, peaceful integration | ✅ | `suite_fealty.rs` |
 | Save/load with schema back-compat | ✅ | `economy.rs`, `suite_invariants.rs` |
 | Influence, petitions, buy/foment | 🟡 thin: works, no dedicated suite | — |
-| Espionage, combat, sieges, bandits | 🟡 thin: stress-tested only | — |
+| Espionage, bandits | 🟡 thin: stress-tested only | — |
 | Victory conditions | 🟡 thin: simple predicates, no direct test | — |
 | Six courts | 🟡 stat profiles only; no unique units or buildings | — |
 | Audio, diplomacy, multi-faction, migration | ❌ not implemented | — |

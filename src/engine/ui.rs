@@ -804,7 +804,10 @@ fn inspector(ui: &mut Ui, w: &World, n: &crate::game::world::Node, acts: &mut Ve
             );
         }
         if n.besieged {
-            ui.colored_label(theme::BAD, "Under siege!");
+            ui.colored_label(
+                theme::BAD,
+                format!("Under siege! Investment {:.0}%", n.siege_progress),
+            );
         }
         if n.sabotage > 0 {
             ui.colored_label(theme::SPY, "Sabotaged production!");
@@ -851,18 +854,48 @@ fn inspector(ui: &mut Ui, w: &World, n: &crate::game::world::Node, acts: &mut Ve
             });
             if n.owner == Owner::Player {
                 if let Some(next) = n.equipment.next() {
-                    let gold_cost = (n.equipment.upgrade_cost() * 5).max(10);
-                    let can_afford = w.player().gold >= gold_cost;
+                    let gold_cost = n.equipment.upgrade_gold();
+                    let goods_cost = n.equipment.upgrade_goods();
+                    let source = w.fort_supply_source(n.id, Owner::Player);
+                    let goods_have = source
+                        .and_then(|id| w.node(id))
+                        .map(|s| s.stock.goods)
+                        .unwrap_or(0);
+                    let can_afford = w.player().gold >= gold_cost && goods_have >= goods_cost;
                     if ui
                         .add_enabled(
                             can_afford,
-                            egui::Button::new(format!("Forge {} ({}g)", next.label(), gold_cost))
-                                .min_size(egui::vec2(0.0, 22.0)),
+                            egui::Button::new(format!(
+                                "Forge {} ({}g + {} goods)",
+                                next.label(),
+                                gold_cost,
+                                goods_cost
+                            ))
+                            .min_size(egui::vec2(0.0, 22.0)),
                         )
-                        .on_hover_text("Upgrade fort garrison weapons and siege defenses")
+                        .on_hover_text(
+                            "Upgrade fort garrison weapons and siege defenses. Goods come from a \
+                             Supply-linked town.",
+                        )
                         .clicked()
                     {
                         acts.push(Action::UpgradeFortEquipment(n.id));
+                    }
+                    if source.is_none() {
+                        ui.label(
+                            RichText::new("Needs a Supply road to a town with goods.")
+                                .size(10.5)
+                                .color(theme::FAINT),
+                        );
+                    } else if goods_have < goods_cost {
+                        ui.label(
+                            RichText::new(format!(
+                                "The supplying town has {}/{} goods.",
+                                goods_have, goods_cost
+                            ))
+                            .size(10.5)
+                            .color(theme::WARN),
+                        );
                     }
                 } else {
                     ui.label(
@@ -888,6 +921,15 @@ fn inspector(ui: &mut Ui, w: &World, n: &crate::game::world::Node, acts: &mut Ve
                         ))
                         .size(11.0)
                         .color(theme::DIM),
+                    );
+                    ui.label(
+                        RichText::new(format!(
+                            "Fort defense +{:.0}% \u{b7} town loyalty +{}/100t",
+                            (gen.fort_defense_multiplier() - 1.0) * 100.0,
+                            gen.loyalty_aura()
+                        ))
+                        .size(10.5)
+                        .color(theme::GOOD),
                     );
                     let loyalty_color = if gen.loyalty >= 70 {
                         theme::GOOD

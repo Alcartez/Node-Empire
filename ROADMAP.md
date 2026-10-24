@@ -38,14 +38,14 @@ A ✅ without a test is not allowed. If a test is deleted, the row drops to 🟡
 | Garrisons, supply links, tier caps | ✅ | `tests/economy.rs`, `sim_stress` |
 | Manual worker training and skill growth | ✅ | `tests/suite_training.rs` (4 tests) |
 | Auto-employment | ✅ | `tests/suite_auto_employ.rs` |
-| Generals: salary, loyalty, mutiny | ✅ | `tests/suite_generals.rs` |
-| Equipment tiers | ✅ | `tests/suite_equipment.rs` |
+| Generals: salary, loyalty, mutiny, fort defense + loyalty aura | ✅ | `tests/suite_generals.rs` (7 tests) |
+| Equipment tiers: gold + goods, supply-gated | ✅ | `tests/suite_equipment.rs` (5 tests) |
 | Races as passive multipliers | ✅ | `tests/suite_demographics.rs` |
 | Fealty, tiers, peaceful integration | ✅ | `tests/suite_fealty.rs` |
 | Save/load and schema back-compat | ✅ | `economy`, `suite_invariants` |
 | Influence, petitions, foment, purchase | 🟡 | works, no dedicated suite |
 | Espionage (4 ops + detection) | 🟡 | works, no dedicated suite |
-| Combat, sieges, bandits | 🟡 | stress-tested only |
+| Combat, sieges, bandits | 🟡 | node war has `tests/suite_combat.rs` (3 tests); espionage/bandits stress-tested only |
 | Victory conditions | 🟡 | simple predicates, no direct test |
 | Faction profiles | 🟡 | six multiplier sets; no asymmetric content |
 | AI opponent | 🟡 | one enemy, personality and difficulty only |
@@ -65,7 +65,7 @@ A ✅ without a test is not allowed. If a test is deleted, the row drops to 🟡
 - [x] Fealty, auto-employment, and training suites (4 tests each)
 - [x] In-game help covers auto-employment and fealty
 - [x] Save timestamps labelled UTC
-- [ ] CI green on Windows **and** Linux for this commit
+- [x] CI green on Windows **and** Linux for this commit
 - [x] Every ✅ row above names a test that a reviewer can run
 
 **Done when:** a fresh clone runs the four verification commands in

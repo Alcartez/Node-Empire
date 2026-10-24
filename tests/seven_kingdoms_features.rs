@@ -91,6 +91,15 @@ fn test_fort_equipment_progression() {
     // Give player plenty of gold
     w.player_ledger.gold = 1000;
 
+    // Armory upgrades are forged from goods, so the fort needs a Supply road
+    // to a friendly town holding raw goods.
+    let supply_town = w
+        .fort_supply_source(player_fort, Owner::Player)
+        .expect("Player starting fort should be supplied by a town");
+    if let Some(town) = w.node_mut(supply_town) {
+        town.stock.goods = 500;
+    }
+
     // Militia -> Bronze
     let res1 = w.upgrade_fort_equipment(player_fort, Owner::Player);
     assert!(res1.is_ok());

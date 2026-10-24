@@ -190,6 +190,8 @@ target_happy   = order x 0.6 + happiness x 0.4 + faction happiness
 - Empty settlements with food or a food road can regain settlers (5% chance).
 - **Rebellion:** if `loyalty < 35` and `happiness < 30`, a non-neutral
   settlement has a 2% chance per tick to go neutral.
+- **Loyalty aura:** every 100 ticks a general posted to the settlement's Supply
+  fort restores `max(1, leadership / 25)` loyalty (up to 100).
 - Tiers: village < 100 pop, town 100–499, city 500–1999, metropolis 2000+.
 
 Reference points from `tests/economy.rs`:
@@ -246,10 +248,19 @@ Pinned by `tests/suite_auto_employ.rs` (4 tests).
 
 | Stat | Effect |
 |---|---|
-| `leadership` | fort order bonus: `20 x (0.8 + 0.4 x leadership/100)`, then x1.15 if the general shares the settlement's dominant race, x0.90 otherwise |
+| `leadership` | fort order bonus: `20 x (0.8 + 0.4 x leadership/100)`, then x1.15 if the general shares the settlement's dominant race, x0.90 otherwise; also adds `leadership/100 x 0.20` to fort defense |
 | `combat` | battle multiplier: `1 + combat/100 x 0.5` |
-| `loyalty` | 0–100; warned below 20, mutiny below 10 |
+| `loyalty` | 0–100; adds `loyalty/100 x 0.10` to fort defense; warned below 20, mutiny below 10 |
 | `salary` | **flat 15 gold**, never varies |
+
+A general assigned to a fort (`fort.general_id`) therefore does three things:
+
+- **Defense:** multiplies the fort's defense by
+  `1 + 0.20 x leadership/100 + 0.10 x loyalty/100` (max **+30%**). Defense
+  divides incoming losses, so the commander's troops last longer.
+- **Order:** scales the fort's order bonus to its supplied settlement.
+- **Loyalty aura:** every 100 ticks, adds `max(1, leadership / 25)` loyalty to
+  the settlement that fort supplies.
 
 Upkeep runs every **100 ticks**:
 
@@ -258,7 +269,7 @@ Upkeep runs every **100 ticks**:
 - `loyalty < 10`: the general mutinies, takes their fort, and both become
   `Owner::Bandit`.
 
-Pinned by `tests/suite_generals.rs` (4 tests) and
+Pinned by `tests/suite_generals.rs` (7 tests) and
 `tests/seven_kingdoms_features.rs`.
 
 ---
@@ -315,24 +326,87 @@ No dedicated tests; covered indirectly by the stress run. Listed as thin.
 
 ## 13. Combat, sieges, equipment
 
-- Combat happens only along `Combat` and `Siege` roads between hostile owners.
-- Fort battles compare garrison size, average soldier skill, race multipliers,
-  faction combat multipliers, equipment, and general combat skill.
-- Sieges mark the settlement `besieged`, which applies the −25 order penalty and
-  prevents growth.
-- Bandit camps fight forts like any other hostile node.
+War is fought entirely over nodes: there are no marching columns and no direct
+unit control. Combat happens only along `Combat` and `Siege` roads between
+hostile owners, resolved once per tick.
+
+### Fort battles (`Combat` road)
+
+Each side computes an **attack** and a **defense**:
+
+```
+attack = (1 + 0.08 x garrison + 0.02 x soldier skill)
+         x (0.5 + loyalty/200)            # morale
+         x (0.75 if the fort is unsupplied)
+         x faction combat
+         x race combat multiplier
+         x equipment combat multiplier
+         x general combat multiplier
+
+defense = 1.15
+          x race defense multiplier
+          x equipment defense multiplier
+          x general fort defense multiplier   # 1 + 0.20 x Ldr/100 + 0.10 x Loy/100
+```
+
+Losses on each side are `1.1 x attack_other / defense_self`, symmetric, so
+neither end of the road gets a free bonus. Because defense divides incoming
+losses, a commander protects their own garrison instead of adding offense. A
+fort at 0 population is captured; bandit camps become neutral, and bandit camps
+fight forts like any other hostile node.
+
+### Sieges (`Siege` road, fort to hostile settlement)
+
+- The settlement is marked `besieged`, taking the -25 order penalty and
+  stalling growth.
+- **Siege investment** (`Node.siege_progress`, 0–100) grows each tick by
+  `max(1, siege power / town defense)`:
+
+```
+siege power = garrison x 0.10
+              x (1 + 0.02 x soldier skill)
+              x equipment combat
+              x general combat
+              x (1 + 0.25 x leadership/100)
+              x (1.00 supplied, 0.70 unsupplied)
+
+town defense = (1 + 0.01 x loyalty + tier bonus)
+               x faction defense
+               x race defense multiplier
+```
+
+- Casualties are **pulsed every 5 ticks** (`damage` population, -1 happiness,
+  -1 loyalty), so a siege captures a town rather than erasing it. The
+  besieging fort loses `max(1, town pop / 150)` every 3 ticks to urban
+  resistance.
+- Capture occurs at **100 investment** or when population hits zero. The town
+  is preserved: at least 10 townsfolk remain, the occupying garrison (up to 20)
+  moves in, loyalty resets to 40, and investment clears.
+- A broken siege (road removed or no longer hostile) loses 1 investment per
+  tick until it reaches zero.
+
+### Supply
+
+A fort is **supplied** when it has a `Supply` road to any friendly node. An
+unsupplied fort fights at 75% attack and sieges at 70% power, so cutting the
+road is a real war aim.
 
 ### Equipment tiers (per fort)
 
-| Tier | Combat | Defense | Upgrade cost (gold) |
-|---|---:|---:|---:|
-| Militia | 1.00 | 1.00 | 50 |
-| Bronze | 1.25 | 1.15 | 125 |
-| Iron-Clad | 1.60 | 1.35 | 250 |
+| Tier | Combat | Defense | Upgrade cost |
+|---|---:|---:|---|
+| Militia | 1.00 | 1.00 | 50 gold + 15 goods |
+| Bronze | 1.25 | 1.15 | 125 gold + 40 goods |
+| Iron-Clad | 1.60 | 1.35 | 250 gold + 80 goods |
 | Steel & Siege | 2.00 | 1.60 | - |
 
-Upgrades cost gold only (no goods); only the fort's owner may upgrade it. Pinned by
-`tests/suite_equipment.rs` (3 tests).
+Upgrades require **both** gold and goods. The goods are drawn from the
+friendly settlement feeding the fort by Supply road (the best-stocked one when
+several are linked); with no Supply road, or too few goods, the upgrade is
+refused and nothing is charged. Only the fort's owner may upgrade it.
+
+Pinned by `tests/suite_combat.rs` (3 tests) and `tests/suite_equipment.rs`
+(5 tests).
 
 ---
 

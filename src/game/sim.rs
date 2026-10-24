@@ -777,27 +777,30 @@ impl World {
                 (employed as f32 / posts as f32 * 100.0).min(100.0)
             };
 
-            let fort_order = if let Some(fid) = self.fort_supplying(id) {
-                if let Some(fort) = self.nodes.get(&fid) {
-                    if let Some(gid) = fort.general_id {
-                        if let Some(gen) = self.general(gid) {
-                            let harmony = if Some(gen.race) == dominant_race {
-                                1.15
-                            } else {
-                                0.90
-                            };
-                            gen.fort_order_bonus() * harmony
+            let (fort_order, loyalty_aura) = if let Some(fid) = self.fort_supplying(id) {
+                let general = self
+                    .nodes
+                    .get(&fid)
+                    .and_then(|f| f.general_id)
+                    .and_then(|gid| self.general(gid));
+                match general {
+                    Some(gen) => {
+                        let harmony = if Some(gen.race) == dominant_race {
+                            1.15
                         } else {
-                            ORDER_FORT_BONUS
-                        }
-                    } else {
-                        ORDER_FORT_BONUS
+                            0.90
+                        };
+                        let aura = if self.tick.is_multiple_of(100) {
+                            gen.loyalty_aura()
+                        } else {
+                            0
+                        };
+                        (gen.fort_order_bonus() * harmony, aura)
                     }
-                } else {
-                    ORDER_FORT_BONUS
+                    None => (ORDER_FORT_BONUS, 0),
                 }
             } else {
-                0.0
+                (0.0, 0)
             };
 
             let faction_happiness = match owner {
@@ -889,6 +892,8 @@ impl World {
                     n.faction = None;
                     n.loyalty = 100;
                     n.happiness = 40.0;
+                } else if loyalty_aura > 0 {
+                    n.loyalty = (loyalty + loyalty_aura).min(100);
                 }
             }
 
@@ -1012,6 +1017,35 @@ impl World {
             .map(|e| (e.from, e.to, e.kind))
             .collect();
 
+        // Clear last tick's siege flags, then mark the settlements currently
+        // invested. A broken siege loses its progress; an active one keeps it.
+        for n in self.nodes.values_mut() {
+            n.besieged = false;
+        }
+        for e in self.edges.iter().filter(|e| e.kind == EdgeType::Siege) {
+            let (Some(a), Some(b)) = (self.nodes.get(&e.from), self.nodes.get(&e.to)) else {
+                continue;
+            };
+            if !a.owner.is_hostile_to(b.owner) {
+                continue;
+            }
+            let target = match (a.kind, b.kind) {
+                (NodeType::Fort, _) => b.id,
+                (_, NodeType::Fort) => a.id,
+                _ => continue,
+            };
+            if let Some(n) = self.nodes.get_mut(&target) {
+                if n.is_settlement() {
+                    n.besieged = true;
+                }
+            }
+        }
+        for n in self.nodes.values_mut() {
+            if !n.besieged && n.siege_progress > 0.0 {
+                n.siege_progress = (n.siege_progress - 1.0).max(0.0);
+            }
+        }
+
         for (a, b, kind) in combat_edges {
             let (owner_a, owner_b, hostile) = {
                 let (na, nb) = match (self.nodes.get(&a), self.nodes.get(&b)) {
@@ -1026,25 +1060,8 @@ impl World {
 
             match kind {
                 EdgeType::Combat => self.resolve_fort_battle(a, b, owner_a, owner_b),
-                EdgeType::Siege => self.resolve_siege(a, b, owner_a, owner_b),
+                EdgeType::Siege => self.resolve_siege(a, b),
                 _ => {}
-            }
-        }
-
-        // Clear besieged flags, re-set them below.
-        for n in self.nodes.values_mut() {
-            n.besieged = false;
-        }
-        for e in self.edges.iter().filter(|e| e.kind == EdgeType::Siege) {
-            let target = if self.nodes.get(&e.from).map(|n| n.kind) == Some(NodeType::Fort) {
-                e.to
-            } else {
-                e.from
-            };
-            if let Some(n) = self.nodes.get_mut(&target) {
-                if n.is_settlement() {
-                    n.besieged = true;
-                }
             }
         }
     }
@@ -1055,6 +1072,8 @@ impl World {
             garr_b,
             skill_a,
             skill_b,
+            loyalty_a,
+            loyalty_b,
             faction_a,
             faction_b,
             race_a,
@@ -1074,55 +1093,81 @@ impl World {
                 nb.population,
                 na.avg_skill(JobType::Soldier),
                 nb.avg_skill(JobType::Soldier),
+                na.loyalty,
+                nb.loyalty,
                 na.faction,
                 nb.faction,
                 na.dominant_race.unwrap_or(Race::Human),
                 nb.dominant_race.unwrap_or(Race::Human),
                 na.equipment,
                 nb.equipment,
-                na.general_id
-                    .and_then(|gid| self.general(gid).map(|g| (g.combat_multiplier(), g.id))),
-                nb.general_id
-                    .and_then(|gid| self.general(gid).map(|g| (g.combat_multiplier(), g.id))),
+                na.general_id.and_then(|gid| {
+                    self.general(gid)
+                        .map(|g| (g.combat_multiplier(), g.fort_defense_multiplier(), g.id))
+                }),
+                nb.general_id.and_then(|gid| {
+                    self.general(gid)
+                        .map(|g| (g.combat_multiplier(), g.fort_defense_multiplier(), g.id))
+                }),
                 na.kind == NodeType::BanditCamp || nb.kind == NodeType::BanditCamp,
             )
         };
+        let supplied_a = self.fort_is_supplied(a);
+        let supplied_b = self.fort_is_supplied(b);
 
         if garr_a <= 0 && garr_b <= 0 {
             return;
         }
 
-        // Combat power: garrison + skills + faction/race/equipment/general bonuses + defense.
-        let power = |garr: i32,
-                     skill: f32,
-                     faction: Option<Faction>,
-                     race: Race,
-                     equip: EquipmentTier,
-                     gen: Option<(f32, u32)>,
-                     is_defender: bool|
+        // Attack is what a garrison projects; defense is what its walls, race,
+        // equipment, and commander absorb. Losses are attack divided by the
+        // *other* side's defense, so a commander protects their own troops
+        // instead of magically raising their offense. Loyalty doubles as
+        // morale: a sullen garrison fights at half strength.
+        let attack = |garr: i32,
+                      skill: f32,
+                      loyalty: i32,
+                      supplied: bool,
+                      faction: Option<Faction>,
+                      race: Race,
+                      equip: EquipmentTier,
+                      gen: Option<(f32, f32, u32)>|
          -> f32 {
             let mut p = 1.0 + garr as f32 * 0.08 + skill * 0.02;
+            p *= 0.5 + loyalty as f32 / 200.0;
+            if !supplied {
+                p *= 0.75;
+            }
             if let Some(f) = faction {
-                let d = faction_def(f);
-                p *= d.combat;
+                p *= faction_def(f).combat;
             }
-            if is_defender {
-                p *= 1.15 * race.defense_multiplier() * equip.defense_mult();
-            } else {
-                p *= race.combat_multiplier() * equip.combat_mult();
-            }
-            if let Some((gen_mult, _)) = gen {
+            p *= race.combat_multiplier() * equip.combat_mult();
+            if let Some((gen_mult, _, _)) = gen {
                 p *= gen_mult;
             }
             p.max(0.1)
         };
+        let defense = |race: Race, equip: EquipmentTier, gen: Option<(f32, f32, u32)>| -> f32 {
+            let mut d = 1.15 * race.defense_multiplier() * equip.defense_mult();
+            if let Some((_, gen_def, _)) = gen {
+                d *= gen_def;
+            }
+            d.max(0.1)
+        };
 
-        let atk_a = power(garr_a, skill_a, faction_a, race_a, equip_a, gen_a, false);
-        let atk_b = power(garr_b, skill_b, faction_b, race_b, equip_b, gen_b, true);
+        let atk_a = attack(
+            garr_a, skill_a, loyalty_a, supplied_a, faction_a, race_a, equip_a, gen_a,
+        );
+        let atk_b = attack(
+            garr_b, skill_b, loyalty_b, supplied_b, faction_b, race_b, equip_b, gen_b,
+        );
+        let def_a = defense(race_a, equip_a, gen_a);
+        let def_b = defense(race_b, equip_b, gen_b);
 
-        // Each side takes damage from the other's power.
-        let dmg_to_b = (atk_a * 1.2).round() as i32;
-        let dmg_to_a = (atk_b * 1.0).round() as i32;
+        // Each side's losses are the other side's attack divided by its own
+        // defense. Symmetric, so neither end of the road gets a free bonus.
+        let dmg_to_b = (atk_a * 1.1 / def_b).round() as i32;
+        let dmg_to_a = (atk_b * 1.1 / def_a).round() as i32;
 
         let mut a_falls = false;
         let mut b_falls = false;
@@ -1153,12 +1198,12 @@ impl World {
             if owner_b == Owner::Player {
                 self.stats.battles_won += 1;
             }
-            if let Some((_, gid)) = gen_b {
+            if let Some((_, _, gid)) = gen_b {
                 if let Some(g) = self.general_mut(gid) {
                     g.kills += 1;
                 }
             }
-            if let Some((_, gid)) = gen_a {
+            if let Some((_, _, gid)) = gen_a {
                 if let Some(g) = self.general_mut(gid) {
                     g.fort_id = None;
                     g.loyalty = g.loyalty.saturating_sub(25);
@@ -1174,12 +1219,12 @@ impl World {
             if owner_a == Owner::Player {
                 self.stats.battles_won += 1;
             }
-            if let Some((_, gid)) = gen_a {
+            if let Some((_, _, gid)) = gen_a {
                 if let Some(g) = self.general_mut(gid) {
                     g.kills += 1;
                 }
             }
-            if let Some((_, gid)) = gen_b {
+            if let Some((_, _, gid)) = gen_b {
                 if let Some(g) = self.general_mut(gid) {
                     g.fort_id = None;
                     g.loyalty = g.loyalty.saturating_sub(25);
@@ -1190,8 +1235,9 @@ impl World {
         let _ = is_camp;
     }
 
-    fn resolve_siege(&mut self, fort: u32, settlement: u32, fort_owner: Owner, _set_owner: Owner) {
-        // Determine which end is the fort.
+    fn resolve_siege(&mut self, fort: u32, settlement: u32) {
+        // Determine which end is the fort, and take the besieger's allegiance
+        // from the fort itself rather than trusting the edge direction.
         let (fort_id, set_id) = {
             let a_is_fort = self.nodes.get(&fort).map(|n| n.kind == NodeType::Fort) == Some(true);
             if a_is_fort {
@@ -1200,8 +1246,12 @@ impl World {
                 (settlement, fort)
             }
         };
+        let fort_owner = match self.nodes.get(&fort_id) {
+            Some(f) => f.owner,
+            None => return,
+        };
 
-        let (garr, def_bonus, set_pop, set_loyalty, set_faction, set_race, fort_equip, gen_mult) = {
+        let (garr, soldier_skill, set_pop, set_loyalty, set_faction, set_race, fort_equip, gen) = {
             let f = match self.nodes.get(&fort_id) {
                 Some(f) => f,
                 None => return,
@@ -1219,42 +1269,61 @@ impl World {
                 s.dominant_race.unwrap_or(Race::Human),
                 f.equipment,
                 f.general_id
-                    .and_then(|gid| self.general(gid).map(|g| g.combat_multiplier()))
-                    .unwrap_or(1.0),
+                    .and_then(|gid| self.general(gid))
+                    .map(|g| (g.combat_multiplier(), g.leadership as f32)),
             )
         };
         if garr <= 0 {
             return;
         }
+        let supplied = self.fort_is_supplied(fort_id);
+        let (gen_combat, gen_leadership) = gen.unwrap_or((1.0, 0.0));
 
-        // Siege damage vs defense (loyalty + tier + faction defense + race defense).
+        // The town's resistance: loyalty, tier, court and race.
         let mut defense = 1.0 + set_loyalty as f32 * 0.01 + s_tier_bonus(self, set_id);
         if let Some(f) = set_faction {
             defense *= faction_def(f).defense;
         }
         defense *= set_race.defense_multiplier();
 
-        let siege_power =
-            (garr as f32 * 0.10 * (1.0 + def_bonus * 0.02) * fort_equip.combat_mult() * gen_mult)
-                .max(0.1);
+        // Investment grows every tick; casualties are inflicted in pulses, so
+        // a siege captures a town instead of depopulating it.
+        let leadership_bonus = 1.0 + gen_leadership / 100.0 * 0.25;
+        let supply_mult = if supplied { 1.0 } else { 0.70 };
+        let siege_power = (garr as f32
+            * 0.10
+            * (1.0 + soldier_skill * 0.02)
+            * fort_equip.combat_mult()
+            * gen_combat
+            * leadership_bonus
+            * supply_mult)
+            .max(0.1);
         let damage = (siege_power / defense).round() as i32;
 
         let mut falls = false;
         if let Some(s) = self.nodes.get_mut(&set_id) {
-            s.population -= damage.max(1);
-            s.happiness = (s.happiness - 1.0).max(0.0);
-            s.loyalty = (s.loyalty - 1).max(0);
+            s.siege_progress = (s.siege_progress + damage.max(1) as f32).min(100.0);
+            if self.tick.is_multiple_of(5) {
+                s.population -= damage.max(1);
+                s.happiness = (s.happiness - 1.0).max(0.0);
+                s.loyalty = (s.loyalty - 1).max(0);
+            }
             if s.population <= 0 {
-                s.population = 0;
+                s.population = 10; // the town surrenders; it is not erased
+                falls = true;
+            } else if s.siege_progress >= 100.0 {
                 falls = true;
             }
         }
 
-        // Garrison attrition from urban resistance.
-        if let Some(f) = self.nodes.get_mut(&fort_id) {
-            f.population -= (set_pop / 15).max(1);
-            if f.population < 0 {
-                f.population = 0;
+        // Urban resistance bleeds the besieger, but slowly enough that a
+        // relief force or a reinforced garrison can still matter.
+        if self.tick.is_multiple_of(3) {
+            if let Some(f) = self.nodes.get_mut(&fort_id) {
+                f.population -= (set_pop / 150).max(1);
+                if f.population < 0 {
+                    f.population = 0;
+                }
             }
         }
 
@@ -1275,10 +1344,13 @@ impl World {
                 f.population -= occupy;
             }
             if let Some(s) = self.nodes.get_mut(&set_id) {
-                s.population = 10 + occupy;
+                // Preserve the people who surrendered; the occupiers join them.
+                s.population = s.population.max(10) + occupy;
                 s.happiness = 35.0;
                 s.public_order = 30.0;
                 s.loyalty = 40;
+                s.siege_progress = 0.0;
+                s.besieged = false;
             }
             if fort_owner == Owner::Player {
                 self.stats.battles_won += 1;

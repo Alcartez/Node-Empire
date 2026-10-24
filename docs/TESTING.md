@@ -72,9 +72,10 @@ caravan delivers every 4 ticks. Tests that care about pacing should use
 | `tests/spawn.rs` | starter rings, starter forts and generals, 200-seed viability |
 | `tests/sim_stress.rs` | 6000-tick stability, supply caravan flow |
 | `tests/seven_kingdoms_features.rs` | generals, equipment, race traits |
-| `tests/suite_generals.rs` | salary deduction, unpaid loyalty decay, mutiny, leadership order bonus |
+| `tests/suite_generals.rs` | salary deduction, unpaid loyalty decay, mutiny, leadership order bonus, fort defense scaling, loyalty aura, garrison preservation |
 | `tests/suite_demographics.rs` | racial consumption and combat multipliers |
-| `tests/suite_equipment.rs` | tier upgrades, cost, foreign-fort refusal |
+| `tests/suite_equipment.rs` | gold + goods tier upgrades, Supply requirement, foreign-fort and no-goods refusal |
+| `tests/suite_combat.rs` | siege investment, supply-speed advantage, capture without depopulation, broken-siege decay |
 | `tests/suite_invariants.rs` | procedural invariants across seeds, save round-trip |
 | `tests/suite_auto_employ.rs` | one post per interval, no staffing without a road, reserve population, foreign property |
 | `tests/suite_training.rs` | manual training cost, skill tier, population draw, 30-tick growth, refusal without charge |
@@ -84,7 +85,7 @@ caravan delivers every 4 ticks. Tests that care about pacing should use
 
 - espionage operations and detection
 - influence, petitions, foment, purchase
-- combat resolution and sieges
+- bandit raids and fort-to-fort capture timing
 - victory/defeat predicates
 - AI decision making
 

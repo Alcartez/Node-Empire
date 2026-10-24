@@ -27,7 +27,9 @@ is decoration.
 Garrisons, fort equipment, supply lines, and commanders. The interesting
 question is never "how many soldiers" but "can the network behind them pay,
 feed, and reinforce them". Over-mobilising should drain the workforce that pays
-for the army.
+for the army. War is fought over nodes, not by marching columns: a fort's
+garrison attacks or besieges across a road, and cutting its Supply road hurts
+it more than any tactical choice in the field.
 
 ### 2. Economy
 

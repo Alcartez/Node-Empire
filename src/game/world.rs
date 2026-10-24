@@ -43,6 +43,10 @@ pub struct Node {
     pub sabotage: u32,
     /// While > 0 the node is under siege (visual pulse + happiness loss).
     pub besieged: bool,
+    /// 0..100 siege investment. Rises while a hostile fort holds a Siege
+    /// road to this settlement; decays when the siege is broken.
+    #[serde(default)]
+    pub siege_progress: f32,
     /// Accumulator so fractional production isn't lost.
     pub prod_frac: f32,
 
@@ -112,6 +116,7 @@ impl Node {
             research: 0.0,
             sabotage: 0,
             besieged: false,
+            siege_progress: 0.0,
             prod_frac: 0.0,
             tier,
             general_id: None,
@@ -465,6 +470,45 @@ impl World {
             } else {
                 None
             }
+        })
+    }
+
+    /// The friendly settlement feeding this fort by Supply road, preferring
+    /// the one with the largest goods stock so armory upgrades draw on the
+    /// best available store.
+    pub fn fort_supply_source(&self, fort_id: u32, owner: Owner) -> Option<u32> {
+        self.edges
+            .iter()
+            .filter(|e| e.kind == EdgeType::Supply)
+            .filter_map(|e| {
+                let other = if e.from == fort_id {
+                    e.to
+                } else if e.to == fort_id {
+                    e.from
+                } else {
+                    return None;
+                };
+                self.nodes
+                    .get(&other)
+                    .filter(|n| n.owner == owner && n.is_settlement())
+                    .map(|n| n.id)
+            })
+            .max_by_key(|id| self.nodes.get(id).map(|n| n.stock.goods).unwrap_or(0))
+    }
+
+    /// Is this fort connected to any friendly node by a Supply road? This is
+    /// the military lifeline: unsupplied garrisons fight and besiege worse.
+    pub fn fort_is_supplied(&self, fort_id: u32) -> bool {
+        let Some(fort) = self.nodes.get(&fort_id) else {
+            return false;
+        };
+        self.edges_of(fort_id).any(|e| {
+            e.kind == EdgeType::Supply
+                && self
+                    .nodes
+                    .get(&e.other(fort_id))
+                    .map(|n| n.owner == fort.owner)
+                    .unwrap_or(false)
         })
     }
 
@@ -1338,23 +1382,53 @@ impl World {
         let next_tier = current_tier
             .next()
             .ok_or("Already at maximum equipment tier")?;
-        let cost = current_tier.upgrade_cost();
-        let ledger = match payer {
-            Owner::Enemy => &mut self.enemy_ledger,
-            _ => &mut self.player_ledger,
+        let gold_cost = current_tier.upgrade_gold();
+        let goods_cost = current_tier.upgrade_goods();
+        let gold_have = match payer {
+            Owner::Enemy => self.enemy_ledger.gold,
+            _ => self.player_ledger.gold,
         };
 
-        let gold_cost = cost * 5;
-        if ledger.gold < gold_cost {
+        let source_id = self
+            .fort_supply_source(fort_id, payer)
+            .ok_or("Fort needs a Supply road to a friendly settlement")?;
+        let goods_have = self
+            .nodes
+            .get(&source_id)
+            .map(|s| s.stock.goods)
+            .unwrap_or(0);
+        let source_name = self
+            .nodes
+            .get(&source_id)
+            .map(|s| s.name.clone())
+            .unwrap_or_default();
+
+        if gold_have < gold_cost {
             return Err(format!(
                 "Need {} gold for {} weapons (have {})",
                 gold_cost,
                 next_tier.label(),
-                ledger.gold
+                gold_have
             ));
         }
-        ledger.gold -= gold_cost;
+        if goods_have < goods_cost {
+            return Err(format!(
+                "Need {} goods at {} for {} weapons (have {})",
+                goods_cost,
+                source_name,
+                next_tier.label(),
+                goods_have
+            ));
+        }
 
+        // Both costs are validated before either is taken.
+        match payer {
+            Owner::Enemy => self.enemy_ledger.gold -= gold_cost,
+            _ => self.player_ledger.gold -= gold_cost,
+        }
+        if let Some(source) = self.nodes.get_mut(&source_id) {
+            source.stock.goods -= goods_cost;
+        }
         if let Some(fort) = self.nodes.get_mut(&fort_id) {
             fort.equipment = next_tier;
         }
@@ -1362,7 +1436,14 @@ impl World {
         if payer == Owner::Player {
             self.log(
                 EventKind::Good,
-                format!("{} upgraded its armory to {}!", name, next_tier.label()),
+                format!(
+                    "{} upgraded its armory to {} ({}g + {} goods from {})!",
+                    name,
+                    next_tier.label(),
+                    gold_cost,
+                    goods_cost,
+                    source_name
+                ),
             );
         }
         Ok(())

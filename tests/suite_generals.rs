@@ -208,3 +208,138 @@ fn test_general_leadership_boosts_supplied_settlement_order() {
         order_b
     );
 }
+
+#[test]
+fn test_general_fort_defense_bonus_scales_with_leadership_and_loyalty() {
+    let veteran = General::new(1, "Veteran".into(), Owner::Player, Race::Human, 80, 40, 80);
+    let raw = General::new(2, "Raw".into(), Owner::Player, Race::Human, 20, 40, 80);
+    let disloyal = General::new(3, "Disloyal".into(), Owner::Player, Race::Human, 80, 40, 10);
+
+    assert!(
+        veteran.fort_defense_multiplier() > raw.fort_defense_multiplier(),
+        "leadership must raise the fort defense bonus"
+    );
+    assert!(
+        veteran.fort_defense_multiplier() > disloyal.fort_defense_multiplier(),
+        "loyalty must raise the fort defense bonus"
+    );
+    assert!(
+        (veteran.fort_defense_multiplier() - 1.24).abs() < 1e-6,
+        "80 leadership + 80 loyalty should give +24% defense"
+    );
+}
+
+#[test]
+fn test_general_loyalty_aura_steadies_supplied_town() {
+    let mut with_general = ScenarioHarness::quiet();
+    let town = with_general.add_settlement(
+        "Steady Town",
+        Owner::Player,
+        Some(Faction::Breplid),
+        Race::Human,
+        50,
+        5000,
+    );
+    with_general.world.node_mut(town).unwrap().loyalty = 50;
+    let fort = with_general.add_fort(
+        "Steady Fort",
+        Owner::Player,
+        Some(Faction::Breplid),
+        Some(Race::Human),
+        5,
+        EquipmentTier::Militia,
+    );
+    with_general.connect(town, fort, EdgeType::Supply, Owner::Player);
+    with_general.add_general(
+        "Steady Lord",
+        Owner::Player,
+        Race::Human,
+        Some(fort),
+        80,
+        40,
+        100,
+    );
+
+    let mut without = ScenarioHarness::quiet();
+    let control = without.add_settlement(
+        "Steady Town",
+        Owner::Player,
+        Some(Faction::Breplid),
+        Race::Human,
+        50,
+        5000,
+    );
+    without.world.node_mut(control).unwrap().loyalty = 50;
+    let fort_b = without.add_fort(
+        "Steady Fort",
+        Owner::Player,
+        Some(Faction::Breplid),
+        Some(Race::Human),
+        5,
+        EquipmentTier::Militia,
+    );
+    without.connect(control, fort_b, EdgeType::Supply, Owner::Player);
+
+    with_general.step(100);
+    without.step(100);
+
+    // 80 leadership restores 3 loyalty per 100 ticks.
+    assert_eq!(with_general.world.node(town).unwrap().loyalty, 53);
+    assert_eq!(
+        without.world.node(control).unwrap().loyalty,
+        50,
+        "without a commander the town receives no loyalty aura"
+    );
+}
+
+#[test]
+fn test_general_defense_preserves_the_garrison() {
+    fn battle(with_general: bool) -> (ScenarioHarness, u32) {
+        let mut harness = ScenarioHarness::quiet();
+        // Mirror-image garrisons, both Breplid humans, so the only asymmetry
+        // in the fight is the commander on the player's wall.
+        let player_fort = harness.add_fort(
+            "Player Hold",
+            Owner::Player,
+            Some(Faction::Breplid),
+            Some(Race::Human),
+            100,
+            EquipmentTier::Militia,
+        );
+        let enemy_fort = harness.add_fort(
+            "Enemy Hold",
+            Owner::Enemy,
+            Some(Faction::Breplid),
+            Some(Race::Human),
+            100,
+            EquipmentTier::Militia,
+        );
+        if with_general {
+            harness.add_general(
+                "Old Guard",
+                Owner::Player,
+                Race::Human,
+                Some(player_fort),
+                100,
+                0,
+                100,
+            );
+        }
+        harness.connect(player_fort, enemy_fort, EdgeType::Combat, Owner::Player);
+        (harness, player_fort)
+    }
+
+    let (mut held, held_fort) = battle(true);
+    let (mut bare, bare_fort) = battle(false);
+    held.step(3);
+    bare.step(3);
+
+    let held_pop = held.world.node(held_fort).unwrap().population;
+    let bare_pop = bare.world.node(bare_fort).unwrap().population;
+    assert!(
+        held_pop > bare_pop,
+        "a commander's fort defense must preserve troops ({} vs {})",
+        held_pop,
+        bare_pop
+    );
+}
